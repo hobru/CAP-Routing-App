@@ -2,6 +2,7 @@ const cds = require('@sap/cds')
 const express = require('express')
 const { authenticate } = require('./lib/auth')
 const { proxyToBackend } = require('./lib/proxy')
+const { resolveRoutes } = require('./lib/routes')
 
 const LOG = cds.log('mcp')
 
@@ -31,10 +32,13 @@ function bufferBody(req) {
 }
 
 async function handleMcp(req, res) {
-  // Buffer the (small) client message so we can record the JSON-RPC method for
-  // troubleshooting, then hand the buffered body to the proxy. Responses are
-  // never buffered — they stream straight through (SSE-safe).
-  if (req.method === 'POST') {
+  const route = req.mcpRoute || {}
+  // For MCP routes we buffer the (small) client message so we can record the
+  // JSON-RPC method for troubleshooting, then hand the buffered body to the
+  // proxy. This is opt-in per route (`peek`) so non-MCP backends (e.g. OData
+  // $batch / large writes) stream straight through instead of being buffered in
+  // memory. Responses are never buffered — they stream through (SSE-safe).
+  if (route.peek && req.method === 'POST') {
     const { body } = await bufferBody(req)
     req.rawBody = body
     try {
@@ -60,27 +64,51 @@ async function handleMcp(req, res) {
 }
 
 /**
- * Mount the MCP router on the bootstrapped Express app.
- * All /mcp traffic is authenticated and then reverse-proxied to the on-prem
- * ABAP MCP server via the BTP destination + Cloud Connector.
+ * Mount the router(s) on the bootstrapped Express app.
+ *
+ * Each configured route (see `lib/routes.js`) becomes its own authenticated
+ * catch-all mount that reverse-proxies to a backend path via the BTP
+ * destination + Cloud Connector. All routes share the same IAS SSO + principal
+ * propagation. Example:
+ *
+ *   /mcp/*   → <destination>/sap/zmcp2/ZMCPX      (MCP, peek on)
+ *   /odata/* → <destination>/sap/opu/odata/IWBEP  (OData, streamed)
+ *
+ * The '*' path is a catch-all so any sub-path (/mcp/ALL, /odata/MY_SRV, …) is
+ * forwarded — whatever follows the mount point is appended to that route's
+ * backendPath. By default every HTTP verb is accepted (router.all, which also
+ * covers OData's MERGE); set a route's `methods` allowlist to restrict it (e.g.
+ * keep /mcp to the MCP Streamable HTTP set: POST/GET/DELETE).
  */
 module.exports = function mountMcpRouter(app) {
-  const router = express.Router()
+  const routes = resolveRoutes()
 
-  router.use(authenticate)
+  for (const route of routes) {
+    const router = express.Router()
+    router.use(authenticate)
 
-  // MCP Streamable HTTP: POST = client→server messages, GET = server→client
-  // SSE stream, DELETE = explicit session termination.
-  //
-  // The '*' path is a catch-all so that not only the base mount (/mcp) but any
-  // sub-path (/mcp/ALL, /mcp/finance, …) is forwarded. Whatever follows /mcp is
-  // appended to the configured backendPath, e.g. /mcp/finance →
-  // <backendPath>/finance on the ABAP server.
-  router.post('*', handleMcp)
-  router.get('*', handleMcp)
-  router.delete('*', handleMcp)
+    const handler = (req, res) => {
+      req.mcpRoute = route
+      return handleMcp(req, res)
+    }
 
-  app.use('/mcp', router)
+    if (route.methods) {
+      for (const method of route.methods) {
+        if (typeof router[method] === 'function') router[method]('*', handler)
+        else LOG.warn('unsupported HTTP method in route allowlist — skipping', { path: route.path, method })
+      }
+    } else {
+      router.all('*', handler)
+    }
 
-  LOG.info('mounted /mcp router')
+    app.use(route.path, router)
+
+    LOG.info('mounted route', {
+      path: route.path,
+      destination: route.destination,
+      backendPath: route.backendPath,
+      peek: route.peek,
+      methods: route.methods || 'all',
+    })
+  }
 }

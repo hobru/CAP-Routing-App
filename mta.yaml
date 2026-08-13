@@ -27,6 +27,16 @@ modules:
       #   cf set-env mcp-router-srv CDS_MCP_LOCATIONID PM4-Sydney
       #   cf restage mcp-router-srv
       CDS_MCP_LOCATIONID: PM4-Sydney
+      # OPTIONAL — multi-route. By default a single /mcp route is used (the
+      # CDS_MCP_DESTINATION/BACKENDPATH above). To expose several backend paths
+      # under one app (each still authenticated + principal-propagated), set a
+      # JSON array of routes. Per-route destination/locationId/timeout fall back
+      # to the values above; `peek` logs the JSON-RPC method (MCP only); a
+      # `methods` allowlist restricts verbs (omit to allow all, incl. OData MERGE).
+      # Override without a rebuild:
+      #   cf set-env mcp-router-srv CDS_MCP_ROUTES '[{"path":"/mcp","backendPath":"/sap/zmcp2/ZMCPX","peek":true,"methods":["post","get","delete"]},{"path":"/odata","backendPath":"/sap/opu/odata/IWBEP"}]'
+      #   cf restage mcp-router-srv
+      # CDS_MCP_ROUTES: '[{"path":"/mcp","backendPath":"/sap/zmcp2/ZMCPX","peek":true},{"path":"/odata","backendPath":"/sap/opu/odata/IWBEP"}]'
     build-parameters:
       builder: npm
     provides:

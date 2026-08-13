@@ -61,7 +61,13 @@ function filterRequestHeaders(reqHeaders) {
  */
 async function proxyToBackend(req, res) {
   const started = Date.now()
-  const { destination: destinationName, backendPath, timeout } = cds.env.mcp || {}
+  const mcp = cds.env.mcp || {}
+  const route = req.mcpRoute || {}
+  // Per-route config (multi-route), falling back to the flat cds.mcp defaults so
+  // a single-route/legacy setup keeps working unchanged.
+  const destinationName = route.destination || mcp.destination
+  const backendPath = route.backendPath != null ? route.backendPath : mcp.backendPath
+  const timeout = route.timeout || mcp.timeout
   const cid = req.correlationId
   const mcpMethod = req.parsedMcpMethod // set by the router when a body is buffered (optional)
 
@@ -107,6 +113,7 @@ async function proxyToBackend(req, res) {
   // Prefer an explicit BTP-configured value; fall back to whatever the SDK
   // resolved from the destination.
   const locationId =
+    route.locationId ||
     (cds.env.mcp && cds.env.mcp.locationId) ||
     process.env.CDS_MCP_LOCATIONID ||
     destination.cloudConnectorLocationId ||
@@ -145,6 +152,7 @@ async function proxyToBackend(req, res) {
 
   LOG.info('mcp request → backend', {
     correlationId: cid,
+    route: route.path,
     method: req.method,
     mcpMethod,
     user: req.principal?.email,
