@@ -1,0 +1,54 @@
+{
+  "name": "mcp-router",
+  "version": "1.0.0",
+  "description": "CAP router that proxies MCP (Streamable HTTP) traffic to an on-prem ABAP MCP server via BTP Destination + Cloud Connector, with SAP IAS (Entra-federated) SSO and principal propagation.",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@sap/cds": "^9",
+    "@sap/xssec": "^4",
+    "@sap-cloud-sdk/connectivity": "^4",
+    "express": "^4"
+  },
+  "devDependencies": {
+    "@cap-js/sqlite": "^2"
+  },
+  "scripts": {
+    "start": "cds-serve",
+    "watch": "cds watch"
+  },
+  "cds": {
+    "requires": {
+      "auth": {
+        "[production]": {
+          "kind": "ias"
+        },
+        "[development]": {
+          "kind": "mocked",
+          "users": {
+            "alice": {
+              "roles": ["mcp.User"],
+              "email": "alice@example.com"
+            }
+          }
+        }
+      },
+      "destinations": true,
+      "connectivity": true
+    },
+    "log": {
+      "service": true,
+      "levels": {
+        "mcp": "info"
+      }
+    },
+    "mcp": {
+      "destination": "pm4-bp-ssl",
+      "backendPath": "/sap/zmcp2/ZMCPX",
+      "locationId": "PM4-Sydney",
+      "timeout": 120000
+    }
+  }
+}

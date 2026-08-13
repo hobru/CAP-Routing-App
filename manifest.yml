@@ -1,0 +1,27 @@
+---
+# Quick `cf push` alternative to the MTA build. Bind the services first:
+#   cf create-service destination     lite         mcp-router-destination
+#   cf create-service connectivity    lite         mcp-router-connectivity
+#   cf create-service identity        application   mcp-router-identity
+#   cf create-service application-logs lite         mcp-router-logs
+# then: cf push
+applications:
+  - name: mcp-router-srv
+    memory: 256M
+    disk_quota: 512M
+    buildpacks:
+      - nodejs_buildpack
+    command: npm start
+    health-check-type: http
+    health-check-http-endpoint: /health
+    env:
+      NODE_ENV: production
+      CDS_ENV: production
+      # ABAP MCP endpoint; sub-paths after /mcp are appended to it. Override with
+      # `cf set-env mcp-router-srv CDS_MCP_BACKENDPATH <path>` + `cf restage`.
+      CDS_MCP_BACKENDPATH: /sap/zmcp2/ZMCPX
+    services:
+      - mcp-router-destination
+      - mcp-router-connectivity
+      - mcp-router-identity
+      - mcp-router-logs

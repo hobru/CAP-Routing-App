@@ -1,0 +1,84 @@
+_schema-version: "3.1"
+ID: mcp-router
+version: 1.0.0
+description: CAP router proxying MCP traffic to on-prem ABAP MCP server via Cloud Connector, with IAS SSO + principal propagation.
+
+parameters:
+  enable-parallel-deployments: true
+
+modules:
+  - name: mcp-router-srv
+    type: nodejs
+    path: .
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 256M
+      disk-quota: 512M
+    properties:
+      # ABAP MCP endpoint. Everything a client appends after /mcp is routed
+      # under this path (e.g. /mcp/finance → /sap/zmcp2/ZMCPX/finance).
+      # Override at any time without a rebuild:
+      #   cf set-env mcp-router-srv CDS_MCP_BACKENDPATH /sap/zmcp2/ZMCPX_TEST
+      #   cf restage mcp-router-srv
+      CDS_MCP_BACKENDPATH: /sap/zmcp2/ZMCPX
+      # SAP Cloud Connector Location ID. Must match the location the SCC is
+      # registered under in this subaccount (and the destination's location).
+      # Override without a rebuild:
+      #   cf set-env mcp-router-srv CDS_MCP_LOCATIONID PM4-Sydney
+      #   cf restage mcp-router-srv
+      CDS_MCP_LOCATIONID: PM4-Sydney
+    build-parameters:
+      builder: npm
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+    requires:
+      - name: mcp-router-destination
+      - name: mcp-router-connectivity
+      - name: mcp-router-identity
+      - name: mcp-router-logs
+
+resources:
+  # On-Premise connectivity target lookup (contains pm4-bp-ssl).
+  - name: mcp-router-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+
+  # Cloud Connector tunnel used to reach the on-prem ABAP system.
+  - name: mcp-router-connectivity
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: connectivity
+      service-plan: lite
+
+  # SAP Identity Authentication (federated to Entra ID) for inbound SSO.
+  - name: mcp-router-identity
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: identity
+      service-plan: application
+      config:
+        display-name: MCP Router
+        oauth2-configuration:
+          # Redirect URIs are RE-APPLIED on every deploy, so any that must
+          # survive a redeploy MUST be listed here (manual additions in the IAS
+          # admin UI get wiped on the next `cf deploy`).
+          redirect-uris:
+            - https://*.${default-domain}/**
+            # Microsoft Copilot Studio / Power Platform custom-connector callback.
+            # The ** wildcard covers the per-connector redirect path, so new
+            # connectors keep working without re-editing IAS.
+            - https://global.consent.azure-apim.net/redirect/**
+          grant-types:
+            - authorization_code
+            - refresh_token
+
+  # Application Logging for troubleshooting in Kibana / cf logs.
+  - name: mcp-router-logs
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: application-logs
+      service-plan: lite
