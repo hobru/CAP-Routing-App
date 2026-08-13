@@ -1,10 +1,22 @@
-# MCP Router (SAP CAP on BTP)
+# SAP BTP Router (CAP on BTP)
 
-A lightweight SAP CAP (Node.js) application that routes **MCP (Model Context
-Protocol) Streamable HTTP** traffic from a cloud client (e.g. Microsoft Copilot
-Studio) to an **on-premise SAP MCP server running on ABAP**, via a **BTP
-Destination + SAP Cloud Connector**, with **SAP IAS (federated to Microsoft
-Entra ID)** single sign-on and **principal propagation** to the real ABAP user.
+A lightweight SAP CAP (Node.js) application that acts as a **generic
+authenticated reverse proxy** from a cloud client (e.g. Microsoft Copilot Studio)
+to **on-premise SAP HTTP endpoints running on ABAP**, via a **BTP Destination +
+SAP Cloud Connector**, with **SAP IAS (federated to Microsoft Entra ID)** single
+sign-on and **principal propagation** to the real ABAP user.
+
+It started life as an **MCP (Model Context Protocol) Streamable HTTP** router —
+still its flagship use case — but the proxy itself is protocol-agnostic. The same
+app can front:
+
+- **MCP** servers on ABAP (Streamable HTTP + SSE), and
+- **generic OData services** (e.g. `/sap/opu/odata/…`, reads *and* writes), and
+- in principle **any other on-premise HTTP API** reachable through the Cloud
+  Connector.
+
+You can expose **one path or many** — see [Configuration](#configuration) for the
+single-route default and the multi-route (`/mcp`, `/odata`, …) setup.
 
 It is intentionally small — a reverse proxy with authentication and
 troubleshooting logging — modelled on the identity chain of
@@ -30,7 +42,7 @@ standing up the full MCP Gateway / Integration Suite. See
 > Gateway** when the use case hardens.
 
 ```
-Copilot Studio ──HTTPS+Bearer(IAS)──▶ MCP Router (CAP, CF) ──connectivity proxy──▶ Cloud Connector ──X.509──▶ ABAP MCP server
+Copilot Studio ──HTTPS+Bearer(IAS)──▶ BTP Router (CAP, CF) ──connectivity proxy──▶ Cloud Connector ──X.509──▶ ABAP (MCP / OData / HTTP)
         Entra ID ──▶ IAS (OIDC)                    principal propagation (SAP-Connectivity-Authentication)      CERTRULE: email ▶ SU01 user
 ```
 
@@ -68,7 +80,7 @@ Make sure the BTP **destination** and **Cloud Connector** already exist (see
 
 1. Client obtains an **IAS** access token (IAS is federated to **Entra ID**, so
    the user signs in with their corporate identity).
-2. Client calls `POST/GET /mcp` on this app with `Authorization: Bearer <token>`.
+2. Client calls one of the app's configured routes (e.g. `POST/GET /mcp`, or `/odata/…` — see [Configuration](#configuration)) on this app with `Authorization: Bearer <token>`.
 3. The app **validates the token** (`@sap/xssec`, signature + issuer + audience
    against the bound `identity` service).
 4. The app resolves the **`pm4-bp-ssl`** destination *with the user's JWT*
@@ -88,10 +100,11 @@ through the connectivity/principal-propagation headers.
 
 | File | Purpose |
 | --- | --- |
-| `srv/server.js` | CAP bootstrap: correlation-id middleware, `/health`, mounts the MCP router before CAP's body parsers (so bodies can stream). |
-| `srv/mcp-router.js` | Express router at `/mcp`: auth guard + peeks the JSON-RPC method for logging. |
+| `srv/server.js` | CAP bootstrap: correlation-id middleware, `/health`, mounts the router(s) before CAP's body parsers (so bodies can stream). |
+| `srv/mcp-router.js` | Mounts one authenticated Express router per configured route (default `/mcp`); auth guard + optional JSON-RPC method peek for logging; forwards all HTTP verbs. |
+| `srv/lib/routes.js` | Resolves the route table from config (single-route default or multi-route `cds.mcp.routes` / `CDS_MCP_ROUTES`). |
 | `srv/lib/auth.js` | Validates the IAS JWT via `@sap/xssec`; dev fallback via `x-dev-email`. |
-| `srv/lib/proxy.js` | Resolves the destination and streams the request through the connectivity proxy (SSE-safe). |
+| `srv/lib/proxy.js` | Resolves the per-route destination and streams the request through the connectivity proxy (SSE-safe). |
 | `mta.yaml` | MTA descriptor (module + destination/connectivity/identity/application-logs). |
 | `manifest.yml` | Quick `cf push` alternative. |
 
