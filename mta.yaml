@@ -14,6 +14,13 @@ modules:
       buildpack: nodejs_buildpack
       memory: 256M
       disk-quota: 512M
+    properties:
+      # ABAP MCP endpoint. Everything a client appends after /mcp is routed
+      # under this path (e.g. /mcp/finance → /sap/zmcp2/ZMCPX/finance).
+      # Override at any time without a rebuild:
+      #   cf set-env mcp-router-srv CDS_MCP_BACKENDPATH /sap/zmcp2/ZMCPX_TEST
+      #   cf restage mcp-router-srv
+      CDS_MCP_BACKENDPATH: /sap/zmcp2/ZMCPX
     build-parameters:
       builder: npm
     provides:

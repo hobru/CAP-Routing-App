@@ -46,7 +46,7 @@
     },
     "mcp": {
       "destination": "pm4-bp-ssl",
-      "backendPath": "/sap/bc/mcp",
+      "backendPath": "/sap/zmcp2/ZMCPX",
       "timeout": 120000
     }
   }

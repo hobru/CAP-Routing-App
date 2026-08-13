@@ -53,17 +53,39 @@ Runtime config lives under `cds.mcp` in `package.json`:
 
 ```jsonc
 "mcp": {
-  "destination": "pm4-bp-ssl",   // BTP destination (OnPremise, PrincipalPropagation)
-  "backendPath": "/sap/bc/mcp",  // path of the MCP handler on the ABAP system
-  "timeout": 120000              // ms; applied to non-streaming calls only
+  "destination": "pm4-bp-ssl",        // BTP destination (OnPremise, PrincipalPropagation)
+  "backendPath": "/sap/zmcp2/ZMCPX",  // base path of the MCP handler on the ABAP system
+  "timeout": 120000                   // ms; applied to non-streaming calls only
 }
 ```
 
-Override without editing code via env vars, e.g.
-`CDS_MCP_DESTINATION=pm4-bp-ssl`, `CDS_MCP_BACKENDPATH=/sap/bc/mcp`.
+Override without editing code (or rebuilding) via env vars, e.g.
+`CDS_MCP_DESTINATION=pm4-bp-ssl`, `CDS_MCP_BACKENDPATH=/sap/zmcp2/ZMCPX`.
+The deploy descriptors (`mta.yaml`, `manifest.yml`) already set
+`CDS_MCP_BACKENDPATH`, so you can retarget the backend on a running app with:
 
-> **Note:** `backendPath` (`/sap/bc/mcp`) is a placeholder — set it to the actual
-> ICF path the ABAP MCP server is published on.
+```bash
+cf set-env mcp-router-srv CDS_MCP_BACKENDPATH /sap/zmcp2/ZMCPX_TEST
+cf restage mcp-router-srv
+```
+
+### Sub-paths
+
+The `/mcp` route is a catch-all: anything a client appends after `/mcp` is
+routed onto `backendPath`. So with the default `backendPath`:
+
+| Client calls (app URL)    | Reaches on ABAP                 |
+| ------------------------- | ------------------------------- |
+| `/mcp`                    | `/sap/zmcp2/ZMCPX`              |
+| `/mcp/ALL`                | `/sap/zmcp2/ZMCPX/ALL`         |
+| `/mcp/finance`            | `/sap/zmcp2/ZMCPX/finance`     |
+| `/mcp/finance/reports`    | `/sap/zmcp2/ZMCPX/finance/reports` |
+
+The destination's `sap-client` is appended as a query parameter automatically.
+
+> **Note:** `backendPath` defaults to `/sap/zmcp2/ZMCPX` — confirm this matches
+> the ICF node the ABAP MCP server is actually published on, and adjust the env
+> var if it differs.
 
 ## Local development
 

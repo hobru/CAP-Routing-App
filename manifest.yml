@@ -17,6 +17,9 @@ applications:
     env:
       NODE_ENV: production
       CDS_ENV: production
+      # ABAP MCP endpoint; sub-paths after /mcp are appended to it. Override with
+      # `cf set-env mcp-router-srv CDS_MCP_BACKENDPATH <path>` + `cf restage`.
+      CDS_MCP_BACKENDPATH: /sap/zmcp2/ZMCPX
     services:
       - mcp-router-destination
       - mcp-router-connectivity

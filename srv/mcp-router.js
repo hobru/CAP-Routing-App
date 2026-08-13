@@ -59,9 +59,14 @@ module.exports = function mountMcpRouter(app) {
 
   // MCP Streamable HTTP: POST = client→server messages, GET = server→client
   // SSE stream, DELETE = explicit session termination.
-  router.post('/', handleMcp)
-  router.get('/', handleMcp)
-  router.delete('/', handleMcp)
+  //
+  // The '*' path is a catch-all so that not only the base mount (/mcp) but any
+  // sub-path (/mcp/ALL, /mcp/finance, …) is forwarded. Whatever follows /mcp is
+  // appended to the configured backendPath, e.g. /mcp/finance →
+  // <backendPath>/finance on the ABAP server.
+  router.post('*', handleMcp)
+  router.get('*', handleMcp)
+  router.delete('*', handleMcp)
 
   app.use('/mcp', router)
 
