@@ -21,6 +21,12 @@ modules:
       #   cf set-env mcp-router-srv CDS_MCP_BACKENDPATH /sap/zmcp2/ZMCPX_TEST
       #   cf restage mcp-router-srv
       CDS_MCP_BACKENDPATH: /sap/zmcp2/ZMCPX
+      # SAP Cloud Connector Location ID. Must match the location the SCC is
+      # registered under in this subaccount (and the destination's location).
+      # Override without a rebuild:
+      #   cf set-env mcp-router-srv CDS_MCP_LOCATIONID PM4-Sydney
+      #   cf restage mcp-router-srv
+      CDS_MCP_LOCATIONID: PM4-Sydney
     build-parameters:
       builder: npm
     provides:

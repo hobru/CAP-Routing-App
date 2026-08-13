@@ -100,6 +100,28 @@ async function proxyToBackend(req, res) {
     'x-correlation-id': cid,
     ...(isOnPremise ? proxyHeaders(proxy) : {}),
   }
+
+  // SCC tunnel selection: the connectivity proxy must be told the Cloud
+  // Connector Location ID, otherwise it looks for an SCC registered under the
+  // default (empty) location and fails when the real SCC uses a named location.
+  // Prefer an explicit BTP-configured value; fall back to whatever the SDK
+  // resolved from the destination.
+  const locationId =
+    (cds.env.mcp && cds.env.mcp.locationId) ||
+    process.env.CDS_MCP_LOCATIONID ||
+    destination.cloudConnectorLocationId ||
+    destination.originalProperties?.CloudConnectorLocationId ||
+    destination.originalProperties?.['CloudConnectorLocationId']
+  const LOC_HEADER = 'SAP-Connectivity-SCC-Location_ID'
+  const hasLoc = Object.keys(headers).some((k) => k.toLowerCase() === LOC_HEADER.toLowerCase())
+  if (isOnPremise && locationId && !hasLoc) headers[LOC_HEADER] = locationId
+  if (isOnPremise && !locationId) {
+    LOG.warn('no SCC location id resolved — connectivity proxy may not match a tunnel', {
+      correlationId: cid,
+      destination: destinationName,
+    })
+  }
+
   // When the router buffered the body (to log the MCP method), send it with an
   // accurate Content-Length instead of streaming.
   if (Buffer.isBuffer(req.rawBody)) {
@@ -129,6 +151,7 @@ async function proxyToBackend(req, res) {
     destination: destinationName,
     proxyType: destination.proxyType,
     target: `${target.origin}${target.pathname}`,
+    locationId: headers[LOC_HEADER],
     sessionId: req.headers['mcp-session-id'],
   })
 
