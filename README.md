@@ -144,9 +144,9 @@ when the public path should be something other than `/mcp`.
 
 Override the flat values without editing code (or rebuilding) via env vars, e.g.
 `CDS_MCP_DESTINATION`, `CDS_MCP_BACKENDPATH`, `CDS_MCP_LOCATIONID`.
-The deploy descriptors provide the initial flat values (`mta.yaml` sets both
-variables; `manifest.yml` sets `CDS_MCP_BACKENDPATH`), so you can retarget a
-running app with:
+The deploy descriptors provide the initial flat values for
+`CDS_MCP_BACKENDPATH` and `CDS_MCP_LOCATIONID`, so you can retarget a running
+app with:
 
 ```bash
 cf set-env mcp-router-srv CDS_MCP_BACKENDPATH /sap/zmcp2/ZMCPX_TEST
