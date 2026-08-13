@@ -16,6 +16,19 @@ a minimal CAP alternative when you want principal propagation into ABAP without
 standing up the full MCP Gateway / Integration Suite. See
 [References & videos](#references--videos).
 
+> **When to use this — and when to reach for the MCP Gateway.** This app is a
+> great way to get a **first test or pilot** running quickly: end-to-end SSO and
+> principal propagation into ABAP with minimal moving parts. It is deliberately
+> **not** as feature-rich as the
+> [MCP Gateway on SAP Integration Suite](https://github.com/hobru/sap-mcp-gateway-copilot-studio) —
+> for example it has **no built-in rate limiting / throttling, quotas, or API
+> analytics**. For many customers that is fine (they already terminate throttling
+> and traffic management elsewhere — an API gateway, WAF, or the client platform's
+> own limits). If you need those capabilities managed *at this hop*, or a
+> productised, policy-governed API surface, use the Integration Suite MCP Gateway
+> instead. A sensible path is: **pilot with this router, graduate to the MCP
+> Gateway** when the use case hardens.
+
 ```
 Copilot Studio ──HTTPS+Bearer(IAS)──▶ MCP Router (CAP, CF) ──connectivity proxy──▶ Cloud Connector ──X.509──▶ ABAP MCP server
         Entra ID ──▶ IAS (OIDC)                    principal propagation (SAP-Connectivity-Authentication)      CERTRULE: email ▶ SU01 user
