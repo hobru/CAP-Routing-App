@@ -50,7 +50,7 @@ On the app under **Client Authentication** / **Single Sign-On**:
 
 | Setting | Value |
 | --- | --- |
-| Redirect URIs | The caller's callback. For Copilot Studio custom connectors typically `https://token.botframework.com/.auth/web/redirect` (+ any tenant-specific URI). Replace the `https://*.<domain>/**` placeholder from `mta.yaml` with the real URIs. |
+| Redirect URIs | The caller's callback. For Copilot Studio / Power Platform connectors this is typically `https://global.consent.azure-apim.net/redirect/<connector>`; for Bot Framework connectors `https://token.botframework.com/.auth/web/redirect`. `mta.yaml` already seeds a `https://global.consent.azure-apim.net/redirect/**` wildcard (so redeploys don't wipe it) — add any tenant-specific URIs here too. |
 | Grant types | `authorization_code` + `refresh_token` (interactive SSO). Use `client_credentials` only for non-user/technical calls. |
 | Client authentication | Enable **PKCE**, or issue a **client secret** (`clientsecret` above). |
 | Authorization / Token endpoints | `<url>/oauth2/authorize` and `<url>/oauth2/token` from the tenant `url`. |
