@@ -107,6 +107,13 @@ cf create-service application-logs lite        mcp-router-logs
 cf push
 ```
 
+## IAS OAuth setup
+
+After deployment, the `identity` binding auto-creates an **Application** in your
+IAS tenant. See **[`IAS-SETUP.md`](./IAS-SETUP.md)** for the step-by-step admin
+console configuration (Entra federation, redirect URIs, grant types, token
+**audience**, and the **email** claim required for principal propagation).
+
 ## Required BTP / backend configuration
 
 These are environment steps outside this repo (see the reference project's
