@@ -57,10 +57,15 @@ resources:
       config:
         display-name: MCP Router
         oauth2-configuration:
-          # Bearer-token API; no interactive redirect needed, but keep a
-          # placeholder so the app can be registered as an OAuth client.
+          # Redirect URIs are RE-APPLIED on every deploy, so any that must
+          # survive a redeploy MUST be listed here (manual additions in the IAS
+          # admin UI get wiped on the next `cf deploy`).
           redirect-uris:
             - https://*.${default-domain}/**
+            # Microsoft Copilot Studio / Power Platform custom-connector callback.
+            # The ** wildcard covers the per-connector redirect path, so new
+            # connectors keep working without re-editing IAS.
+            - https://global.consent.azure-apim.net/redirect/**
           grant-types:
             - authorization_code
             - refresh_token
