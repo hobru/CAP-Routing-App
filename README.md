@@ -110,7 +110,24 @@ through the connectivity/principal-propagation headers.
 
 ## Configuration
 
-Runtime config lives under `cds.mcp` in `package.json`:
+Runtime config lives under `cds.mcp` in `package.json`. There are two supported
+configuration shapes:
+
+| What you want | Configuration | Public app path |
+| ------------- | ------------- | --------------- |
+| Default MCP route | Set the flat `backendPath` | Fixed at `/mcp` |
+| One route with a custom public path | Set `routes` with one entry | The entry's `path`, e.g. `/odata` or `/api` |
+| Multiple MCP, OData, or other routes | Set `routes` with multiple entries | Each entry has its own `path` |
+
+In both shapes, anything after the public app path is appended to
+`backendPath`. For example, a route with `"path": "/odata"` and
+`"backendPath": "/sap/opu/odata/sap"` maps
+`/odata/API_BUSINESS_PARTNER/A_BusinessPartner` to
+`/sap/opu/odata/sap/API_BUSINESS_PARTNER/A_BusinessPartner`.
+
+### Option 1: default `/mcp` path
+
+The flat configuration exposes one catch-all route at `/mcp`:
 
 ```jsonc
 "mcp": {
@@ -121,11 +138,15 @@ Runtime config lives under `cds.mcp` in `package.json`:
 }
 ```
 
-Override without editing code (or rebuilding) via env vars, e.g.
+The public path is fixed in this shape; `destination`, `backendPath`,
+`locationId`, and `timeout` remain configurable. Use the `routes` array below
+when the public path should be something other than `/mcp`.
+
+Override the flat values without editing code (or rebuilding) via env vars, e.g.
 `CDS_MCP_DESTINATION`, `CDS_MCP_BACKENDPATH`, `CDS_MCP_LOCATIONID`.
-The deploy descriptors (`mta.yaml`, `manifest.yml`) already set
-`CDS_MCP_BACKENDPATH` and `CDS_MCP_LOCATIONID`, so you can retarget a running
-app with:
+The deploy descriptors provide the initial flat values (`mta.yaml` sets both
+variables; `manifest.yml` sets `CDS_MCP_BACKENDPATH`), so you can retarget a
+running app with:
 
 ```bash
 cf set-env mcp-router-srv CDS_MCP_BACKENDPATH /sap/zmcp2/ZMCPX_TEST
@@ -139,7 +160,7 @@ cf restage mcp-router-srv
 > is empty or wrong you get *"no SAP Cloud Connector (SCC) connected … matching
 > the requested tunnel"* — override `CDS_MCP_LOCATIONID` and restage.
 
-### Sub-paths
+#### Appended sub-paths
 
 The `/mcp` route is a catch-all: anything a client appends after `/mcp` is
 routed onto `backendPath`. So with the default `backendPath`:
@@ -157,13 +178,17 @@ The destination's `sap-client` is appended as a query parameter automatically.
 > the ICF node the ABAP MCP server is actually published on, and adjust the env
 > var if it differs.
 
-### Multiple routes (MCP + OData + …)
+### Option 2: custom or multiple paths
 
 By default the app exposes a single `/mcp` route (the flat config above). You can
-instead expose **several** authenticated routes under the same app — each with
-its own backend path — by setting a `routes` array. Every route still uses the
-same IAS SSO + principal propagation and the same Cloud Connector; only the
-target path (and, optionally, destination / verbs / logging) differs.
+instead expose **one custom path or several paths** under the same app by setting
+a `routes` array. Each route is authenticated and has its own public `path` and
+backend `backendPath`. Every route still uses the same IAS SSO + principal
+propagation and the same Cloud Connector; only the target path (and, optionally,
+destination / verbs / logging) differs.
+
+`path` can be any app URL prefix; `/mcp`, `/odata`, and `/api` are examples, not
+a fixed list of allowed values.
 
 ```jsonc
 "mcp": {
