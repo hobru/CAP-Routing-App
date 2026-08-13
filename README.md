@@ -145,8 +145,8 @@ curl -X POST http://localhost:4004/mcp -H 'content-type: application/json' \
 
 ## Deploy to Cloud Foundry
 
-Target: org `Microsoft_Corporation_mcaps-ai-poc-a5t0we0l`, space `POC`
-(subaccount **MCAPS_AI_POC**, region **ap20**).
+Target: your CF **org** and **space** (subaccount region **ap20** in this
+example). Set them with `cf target -o <org> -s <space>`.
 
 ### Option A — MTA (recommended)
 
@@ -197,20 +197,46 @@ that the `identity` binding created (get its credentials with
 
 ## Required BTP / backend configuration
 
-These are environment steps outside this repo (see the reference project's
-guides for detail):
+These are environment steps **outside this repo**. The identity chain (IAS token
+→ Cloud Connector → real ABAP user) is exactly the flow built in the MCP Gateway
+series — **[Part 3 (SAP IAS)](https://youtu.be/7Y4TH2DWIoo)** and
+**[Part 4 (on-prem principal propagation)](https://youtu.be/x64gVHRdVMQ)** walk
+through it end to end.
 
-- **Destination `pm4-bp-ssl`** (already present): Type `HTTP`, ProxyType
-  `OnPremise`, Authentication `PrincipalPropagation`, URL
-  `http://pm4.internal.ssl:44301`, `CloudConnectorLocationId=PM4-Sydney`,
-  `sap-client=400`.
-- **IAS**: application federated to **Entra ID**; the user's `mail` must match
-  the ABAP `SU01` e-mail used by the CERTRULE mapping.
-- **Cloud Connector**: system mapping to `pm4.internal.ssl:44301` with CA + system
-  certificates for principal propagation.
+### Destination (the key piece)
+
+The app resolves the destination named by `CDS_MCP_DESTINATION` and forwards over
+the on-premise connectivity proxy. Configure it in the subaccount as **HTTP /
+OnPremise / PrincipalPropagation**:
+
+| Property | Value (example) | Notes |
+| --- | --- | --- |
+| **Type** | `HTTP` | |
+| **ProxyType** | `OnPremise` | routes through the Cloud Connector |
+| **Authentication** | `PrincipalPropagation` | forwards the *user's* identity, no technical user |
+| **URL** | `http://<scc-virtual-host>:<port>` | the **virtual** host defined in the Cloud Connector, not the real ABAP host |
+| **CloudConnectorLocationId** | `<scc-location-id>` | must match the SCC's Location ID (case-sensitive; sent as the `SAP-Connectivity-SCC-Location_ID` header) |
+| Additional property | `sap-client=<nnn>` | target ABAP client, if required |
+
+> **Why PrincipalPropagation?** Instead of a shared service account, BTP mints a
+> short-lived **X.509 certificate** for the logged-in user; the Cloud Connector
+> presents it to the ABAP system, which maps it to a real `SU01` user. That means
+> ABAP authorizations and audit logs reflect the actual person behind the MCP
+> call. Setup (system mapping, CA/system certificates, STRUST, CERTRULE) is
+> covered in **[Part 4 ▶️](https://youtu.be/x64gVHRdVMQ)**.
+
+### The rest
+
+- **IAS**: application federated to **Entra ID**; the user's `mail` claim must
+  match the ABAP `SU01` e-mail used by the CERTRULE mapping. See
+  [`IAS-SETUP.md`](./IAS-SETUP.md) and **[Part 3 ▶️](https://youtu.be/7Y4TH2DWIoo)**.
+- **Cloud Connector**: a system mapping (virtual host → real ABAP host:port) with
+  CA + system certificates enabled for principal propagation, registered under the
+  Location ID referenced above.
 - **ABAP**: STRUST SSL server PSE, `icm/HTTPS/verify_client=1`,
   `icm/trusted_reverse_proxy_0`, `login/certificate_mapping_rulebased=1`, and a
-  **CERTRULE** mapping email → ABAP user.
+  **CERTRULE** mapping email → ABAP user. Detailed in
+  **[Part 4 ▶️](https://youtu.be/x64gVHRdVMQ)**.
 
 ## Troubleshooting / logging
 
