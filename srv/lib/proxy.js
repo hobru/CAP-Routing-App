@@ -28,11 +28,21 @@ const DROP_REQUEST_HEADERS = new Set([
   'x-dev-email',
 ])
 
-/** Turn the Cloud SDK proxy header array into a plain object. */
+/**
+ * Normalise the Cloud SDK proxy headers into a plain object.
+ * Newer @sap-cloud-sdk/connectivity returns `headers` as a plain object
+ * (Record<string, string>); older versions returned an array of {key, value}.
+ * Handle both so principal-propagation / proxy-auth headers are forwarded.
+ */
 function proxyHeaders(proxyConfiguration) {
-  const out = {}
-  for (const h of proxyConfiguration?.headers || []) out[h.key] = h.value
-  return out
+  const h = proxyConfiguration?.headers
+  if (!h) return {}
+  if (Array.isArray(h)) {
+    const out = {}
+    for (const item of h) out[item.key] = item.value
+    return out
+  }
+  return { ...h }
 }
 
 function filterRequestHeaders(reqHeaders) {

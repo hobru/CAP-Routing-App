@@ -44,7 +44,19 @@ async function handleMcp(req, res) {
       /* not JSON (or too large) — leave method undefined */
     }
   }
-  return proxyToBackend(req, res)
+  // Never let a proxy failure become an unhandled rejection — that would crash
+  // the whole CDS server. Contain it to this single request instead.
+  try {
+    return await proxyToBackend(req, res)
+  } catch (err) {
+    LOG.error('mcp handler failed', {
+      correlationId: req.correlationId,
+      error: err.message,
+      stack: err.stack,
+    })
+    if (!res.headersSent) res.status(502).json({ error: 'proxy_error', detail: err.message })
+    else res.end()
+  }
 }
 
 /**
