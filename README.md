@@ -38,6 +38,13 @@ Copilot Studio ──HTTPS+Bearer(IAS)──▶ MCP Router (CAP, CF) ──conne
 
 Four steps from clone to a working SSO call. Details for each are below.
 
+> **Prerequisite — the BTP destination must already exist.** The app forwards to
+> whatever destination `CDS_MCP_DESTINATION` names (default `pm4-bp-ssl`). Create
+> it in the subaccount **before** the first call. For a *quick first test* you can
+> even start with a **Basic authentication** destination to a reachable backend
+> and switch to OnPremise + PrincipalPropagation later — see
+> [Required BTP / backend configuration](#required-btp--backend-configuration).
+
 1. **Deploy** to Cloud Foundry (creates the app + destination/connectivity/
    identity/logs services and an IAS application):
    ```bash
@@ -161,6 +168,12 @@ curl -X POST http://localhost:4004/mcp -H 'content-type: application/json' \
 Target: your CF **org** and **space** (subaccount region **ap20** in this
 example). Set them with `cf target -o <org> -s <space>`.
 
+> **Before you deploy:** make sure the **BTP destination** the app forwards to
+> (default `pm4-bp-ssl`, or whatever `CDS_MCP_DESTINATION` names) exists in the
+> subaccount. Without it, requests fail at the proxy step. See
+> [Required BTP / backend configuration](#required-btp--backend-configuration)
+> for the destination properties (and a Basic-auth option for a first test).
+
 ### Option A — MTA (recommended)
 
 ```bash
@@ -237,6 +250,25 @@ OnPremise / PrincipalPropagation**:
 > ABAP authorizations and audit logs reflect the actual person behind the MCP
 > call. Setup (system mapping, CA/system certificates, STRUST, CERTRULE) is
 > covered in **[Part 4 ▶️](https://youtu.be/x64gVHRdVMQ)**.
+
+> **First test without principal propagation.** Principal propagation +
+> Cloud Connector setup takes time. To validate the router end to end **before**
+> that is in place, point `CDS_MCP_DESTINATION` at a simpler destination using
+> **Basic authentication** (a technical/service user):
+>
+> | Property | Value |
+> | --- | --- |
+> | **Type** | `HTTP` |
+> | **ProxyType** | `Internet` (public backend) or `OnPremise` (via Cloud Connector) |
+> | **Authentication** | `BasicAuthentication` |
+> | **URL** | the backend base URL |
+> | **User / Password** | the technical user's credentials |
+>
+> All calls then run as that single technical user (no per-user identity or
+> ABAP-level audit) — fine for a smoke test, **not** for production. Swap to
+> `PrincipalPropagation` once the Cloud Connector, certificates and CERTRULE are
+> ready; no app change or redeploy is needed, just repoint/reconfigure the
+> destination.
 
 ### The rest
 
