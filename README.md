@@ -425,8 +425,18 @@ OnPremise / PrincipalPropagation**:
   match the ABAP `SU01` e-mail used by the CERTRULE mapping. See
   [`IAS-SETUP.md`](./IAS-SETUP.md) and **[Part 3 ▶️](https://youtu.be/7Y4TH2DWIoo)**.
 - **Cloud Connector**: a system mapping (virtual host → real ABAP host:port) with
-  CA + system certificates enabled for principal propagation, registered under the
-  Location ID referenced above.
+  CA + system certificates enabled for principal propagation, registered under
+  the Location ID referenced above. IAS tokens require Cloud Connector **2.13 or
+  newer** and explicit trust synchronization:
+  1. In the BTP subaccount, confirm the OIDC trust points to the same IAS tenant
+     that issues the router token.
+  2. In Cloud Connector, open **Cloud To On-Premise → Principal Propagation** and
+     choose **Synchronize**.
+  3. Select the synchronized IAS identity-provider entry, choose **Edit**, and
+     mark it **Trusted**. If the router application is also listed and your
+     scenario requires application trust, mark that entry trusted as well.
+  4. Enable **Automatic Trust Synchronization** so signing-key rotations do not
+     break propagation later.
 - **ABAP**: STRUST SSL server PSE, `icm/HTTPS/verify_client=1`,
   `icm/trusted_reverse_proxy_0`, `login/certificate_mapping_rulebased=1`, and a
   **CERTRULE** mapping email → ABAP user. Detailed in
@@ -449,6 +459,7 @@ OnPremise / PrincipalPropagation**:
 | `401 … reason=missing_bearer_token` | No `Authorization` header | Caller isn't sending the IAS token |
 | `401 … reason=invalid_token` | Wrong signature / issuer / **audience** | Token `aud` must equal the IAS `clientid`; check IAS federation |
 | IAS: `redirect_uri … must match` | Redirect URI not on the app (or propagation delay) | Add the exact URI to the IAS app; retry after ~1 min |
+| `SSO token validation failed … trust … cloud connector` | Router accepted the IAS token, but Cloud Connector does not trust its issuer/application | In Cloud Connector **Principal Propagation**, choose **Synchronize**, then mark the IAS entry trusted; verify SCC 2.13+ and that the subaccount trusts the same IAS tenant |
 | `502 … Registered endpoint failed to handle the request` | App crashed / not responding | `cf logs --recent`; check the app booted (`server … launched`) |
 | `no SAP Cloud Connector (SCC) connected … matching the requested tunnel` | Location ID empty or mismatched | Set `CDS_MCP_LOCATIONID` to the SCC's location (case-sensitive) and restage |
 | `502 connectivity_error` | OnPremise destination without connectivity binding | Ensure `connectivity` + `destination` services are bound |
