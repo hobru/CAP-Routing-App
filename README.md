@@ -48,7 +48,7 @@ Copilot Studio ──HTTPS+Bearer(IAS)──▶ BTP Router (CAP, CF) ──conne
 
 ## Quick start
 
-Four steps from clone to a working SSO call. Details for each are below.
+Five steps from clone to a working SSO call. Details for each are below.
 
 > **Prerequisite — the BTP destination must already exist.** The app forwards to
 > whatever destination `CDS_MCP_DESTINATION` names (default `pm4-bp-ssl`). Create
@@ -57,18 +57,36 @@ Four steps from clone to a working SSO call. Details for each are below.
 > and switch to OnPremise + PrincipalPropagation later — see
 > [Required BTP / backend configuration](#required-btp--backend-configuration).
 
-1. **Deploy** to Cloud Foundry (creates the app + destination/connectivity/
+1. **Configure your target before building.** The values committed in
+   `package.json` are examples from one environment. Replace them with **your**
+   BTP destination, backend path, and—when using an OnPremise destination—your
+   Cloud Connector Location ID:
+   ```jsonc
+   "mcp": {
+     "destination": "<your-destination>",
+     "backendPath": "<your-backend-path>",
+     "locationId": "<your-scc-location-id>",
+     "timeout": 120000
+   }
+   ```
+   For an MTA deployment, also set the matching `CDS_MCP_BACKENDPATH` and
+   `CDS_MCP_LOCATIONID` values in `mta.yaml`, because deployment environment
+   variables override `package.json`. If your destination has no Location ID
+   (common in an initial BTP Trial test), omit `locationId` and
+   `CDS_MCP_LOCATIONID`. See [Configuration](#configuration) for custom or
+   multiple public paths.
+2. **Deploy** to Cloud Foundry (creates the app + destination/connectivity/
    identity/logs services and an IAS application):
    ```bash
    npm install -g mbt        # once
    mbt build                 # → mta_archives/mcp-router_1.0.0.mtar
    cf deploy mta_archives/mcp-router_1.0.0.mtar
    ```
-2. **Configure IAS** — federate to Entra ID, set redirect URIs, grant types,
+3. **Configure IAS** — federate to Entra ID, set redirect URIs, grant types,
    audience and the `email` claim. See **[`IAS-SETUP.md`](./IAS-SETUP.md)**.
-3. **Connect Microsoft Copilot Studio** to `https://<app-url>/mcp` using the IAS
+4. **Connect Microsoft Copilot Studio** to `https://<app-url>/mcp` using the IAS
    OAuth client. See [Connect Microsoft Copilot Studio](#connect-microsoft-copilot-studio).
-4. **Verify** — list tools from Copilot Studio, or:
+5. **Verify** — list tools from Copilot Studio, or:
    ```bash
    curl https://<app-url>/health           # {"status":"UP"}
    ```
