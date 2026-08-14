@@ -84,9 +84,10 @@ Five steps from clone to a working SSO call. Details for each are below.
    ```
 3. **Configure IAS** — federate to Entra ID, set redirect URIs, grant types,
    audience and the `email` claim. See **[`IAS-SETUP.md`](./IAS-SETUP.md)**.
-4. **Connect Microsoft Copilot Studio** to `https://<app-url>/mcp` using the IAS
-   OAuth client. See [Connect Microsoft Copilot Studio](#connect-microsoft-copilot-studio).
-5. **Verify** — list tools from Copilot Studio, or:
+4. **Connect Microsoft Copilot Studio or Power Automate** to the appropriate
+   configured route using the IAS OAuth client. See
+   [Connect Microsoft Copilot Studio or Power Automate to the router](#connect-microsoft-copilot-studio-or-power-automate-to-the-router).
+5. **Verify** — invoke the connector or list MCP tools, or:
    ```bash
    curl https://<app-url>/health           # {"status":"UP"}
    ```
@@ -326,15 +327,17 @@ IAS tenant. See **[`IAS-SETUP.md`](./IAS-SETUP.md)** for the step-by-step admin
 console configuration (Entra federation, redirect URIs, grant types, token
 **audience**, and the **email** claim required for principal propagation).
 
-## Connect Microsoft Copilot Studio
+## Connect Microsoft Copilot Studio or Power Automate to the router
 
-Add a custom MCP connector / tool pointing at this app. Use the IAS OAuth client
-that the `identity` binding created (get its credentials with
+In **Copilot Studio**, add an MCP connector/tool pointing at an MCP route such as
+`/mcp`. In **Power Automate**, create a custom connector for the OData or HTTP
+route you configured, such as `/odata` or `/api`. Both use the IAS OAuth client
+created by the `identity` binding (get its credentials with
 `cf service-key mcp-router-identity k1`).
 
 | Setting | Value |
 | --- | --- |
-| **Server URL** | `https://<app-url>/mcp` (append sub-paths, e.g. `/mcp/all` → `/sap/zmcp2/ZMCPX/all`) |
+| **Route URL** | `https://<app-url>/<configured-path>`; for example `/mcp/all` → `/sap/zmcp2/ZMCPX/all` |
 | **Auth** | OAuth 2.0 — Authorization Code (+ PKCE / client secret) |
 | **Client id / audience** | IAS `clientid` (the token `aud` **must** equal this) |
 | **Client secret** | IAS `clientsecret` (or use PKCE) |
