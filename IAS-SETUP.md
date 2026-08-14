@@ -46,11 +46,12 @@ cf service-key mcp-router-identity k1
 
 ## 3. Configure the OAuth 2.0 / OIDC client (the caller)
 
-On the app under **Client Authentication** / **Single Sign-On**:
+On the app under **Client Authentication** / **Single Sign-On**, open
+**OpenID Connect Configuration**:
 
 | Setting | Value |
 | --- | --- |
-| Redirect URIs | The caller's callback. For Copilot Studio / Power Platform connectors this is typically `https://global.consent.azure-apim.net/redirect/<connector>`; for Bot Framework connectors `https://token.botframework.com/.auth/web/redirect`. `mta.yaml` already seeds a `https://global.consent.azure-apim.net/redirect/**` wildcard (so redeploys don't wipe it) — add any tenant-specific URIs here too. |
+| Redirect URIs | The caller's callback. You may only learn the exact URI after creating or configuring the connector in Copilot Studio or Power Automate; copy it from there, then return to this IAS screen and add it. For Copilot Studio / Power Platform connectors this is typically `https://global.consent.azure-apim.net/redirect/<connector>`; for Bot Framework connectors `https://token.botframework.com/.auth/web/redirect`. `mta.yaml` already seeds a `https://global.consent.azure-apim.net/redirect/**` wildcard (so redeploys don't wipe it) — add any tenant-specific URIs here too. |
 | Grant types | `authorization_code` + `refresh_token` (interactive SSO). Use `client_credentials` only for non-user/technical calls. |
 | Client authentication | Enable **PKCE**, or issue a **client secret** (`clientsecret` above). |
 | Authorization / Token endpoints | `<url>/oauth2/authorize` and `<url>/oauth2/token` from the tenant `url`. |
