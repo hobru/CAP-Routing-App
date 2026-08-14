@@ -48,7 +48,13 @@
       "destination": "pm4-bp-ssl",
       "backendPath": "/sap/zmcp2/ZMCPX",
       "locationId": "PM4-Sydney",
-      "timeout": 120000
+      "timeout": 120000,
+      "routes": [
+        {
+          "path": "/mcp",
+          "peek": true
+        }
+      ]
     }
   }
 }

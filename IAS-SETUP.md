@@ -51,7 +51,7 @@ On the app under **Client Authentication** / **Single Sign-On**, open
 
 | Setting | Value |
 | --- | --- |
-| Redirect URIs | The caller's callback. You may only learn the exact URI after creating or configuring the connector in Copilot Studio or Power Automate; copy it from there, then return to this IAS screen and add it. For Copilot Studio / Power Platform connectors this is typically `https://global.consent.azure-apim.net/redirect/<connector>`; for Bot Framework connectors `https://token.botframework.com/.auth/web/redirect`. `mta.yaml` already seeds a `https://global.consent.azure-apim.net/redirect/**` wildcard (so redeploys don't wipe it) — add any tenant-specific URIs here too. |
+| Redirect URIs | The caller's callback. You may only learn the exact URI after creating or configuring the connector in Copilot Studio, Power Automate, Postman, or Bruno; copy it from there, then return to this IAS screen and add it. For the included `.http` test, use `http://localhost:8080/callback`. Power Platform connectors typically use `https://global.consent.azure-apim.net/redirect/<connector>`, Postman commonly uses `https://oauth.pstmn.io/v1/callback`, and Bruno displays its localhost callback in the OAuth configuration. `mta.yaml` seeds the `.http`, Postman, and Power Platform callbacks. Add any other exact callback to both IAS and `mta.yaml`, or a later MTA redeploy will remove it. |
 | Grant types | `authorization_code` + `refresh_token` (interactive SSO). Use `client_credentials` only for non-user/technical calls. |
 | Client authentication | Enable **PKCE**, or issue a **client secret** (`clientsecret` above). |
 | Authorization / Token endpoints | `<url>/oauth2/authorize` and `<url>/oauth2/token` from the tenant `url`. |
@@ -93,14 +93,47 @@ IAS user may call `/mcp`). To also gate on authorization:
 
 ## Quick verification after configuration
 
-```bash
-# 1. obtain a token (authorization_code via browser, or client_credentials for a test)
-# 2. call the router
-curl -i https://<app-url>/mcp \
-  -H "Authorization: Bearer <token>" \
-  -H "content-type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}'
-```
+The repository includes [`http/verify-router.http`](./http/verify-router.http)
+for VS Code REST Client and compatible IDE clients. It contains placeholders
+only—never commit a real client secret, authorization code, or token.
+
+1. Get the application URL. `cf app` prints the hostname on its `routes` line;
+   prefix it with `https://`:
+   ```bash
+   cf app mcp-router-srv
+   # routes: my-router.cfapps.<region>.hana.ondemand.com
+   # app URL: https://my-router.cfapps.<region>.hana.ondemand.com
+   ```
+2. In IAS, add the redirect URI used by your test client. The included `.http`
+   flow uses `http://localhost:8080/callback`. Postman and Bruno show their
+   callback URI in the OAuth 2.0 configuration; add that exact value.
+3. Copy `url`, `clientid`, and `clientsecret` from:
+   ```bash
+   cf service-key mcp-router-identity k1
+   ```
+4. Fill in the placeholders at the top of `http/verify-router.http`. Open its
+   authorization URL in a browser, sign in, copy the `code` from the localhost
+   callback URL (the page itself may fail to load), and run the token request.
+5. Run the MCP `initialize` request or adapt the final request to your configured
+   OData/HTTP route.
+
+### Postman or Bruno
+
+Create an OAuth 2.0 **Authorization Code** configuration with:
+
+| Setting | Value |
+| --- | --- |
+| Authorization URL | `https://<ias-host>/oauth2/authorize` |
+| Access Token URL | `https://<ias-host>/oauth2/token` |
+| Client ID / secret | Values from the `mcp-router-identity` service key |
+| Scope | `openid email offline_access` |
+| Callback URL | The exact callback displayed by Postman or Bruno; also add it to IAS |
+
+Request a user token, select it as the Bearer token, and call:
+
+- `POST https://<app-url>/mcp` with the MCP `initialize` body from the `.http`
+  file, or
+- your configured OData/HTTP route with the method and body required by that API.
 
 - `401 unauthorized reason=invalid_token` → signature/issuer/**audience** wrong.
 - `401 ... reason=missing_bearer_token` → no `Authorization` header.

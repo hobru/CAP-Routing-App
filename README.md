@@ -66,7 +66,13 @@ Five steps from clone to a working SSO call. Details for each are below.
      "destination": "<your-destination>",
      "backendPath": "<your-backend-path>",
      "locationId": "<your-scc-location-id>",
-     "timeout": 120000
+     "timeout": 120000,
+     "routes": [
+       {
+         "path": "/mcp",
+         "peek": true
+       }
+     ]
    }
    ```
    For an MTA deployment, also set the matching `CDS_MCP_BACKENDPATH` and
@@ -87,10 +93,14 @@ Five steps from clone to a working SSO call. Details for each are below.
 4. **Connect Microsoft Copilot Studio or Power Automate** to the appropriate
    configured route using the IAS OAuth client. See
    [Connect Microsoft Copilot Studio or Power Automate to the router](#connect-microsoft-copilot-studio-or-power-automate-to-the-router).
-5. **Verify** — invoke the connector or list MCP tools, or:
+5. **Verify** — get the deployed app URL from the `routes` line printed by:
    ```bash
-   curl https://<app-url>/health           # {"status":"UP"}
+   cf app mcp-router-srv
+   curl https://<route-from-cf>/health     # {"status":"UP"}
    ```
+   Then use [`http/verify-router.http`](./http/verify-router.http), Postman, or
+   Bruno for an authenticated end-to-end call. See
+   [Quick verification after configuration](./IAS-SETUP.md#quick-verification-after-configuration).
 
 Make sure the BTP **destination** and **Cloud Connector** already exist (see
 [Required BTP / backend configuration](#required-btp--backend-configuration)).
@@ -124,45 +134,55 @@ through the connectivity/principal-propagation headers.
 | `srv/lib/routes.js` | Resolves the route table from config (single-route default or multi-route `cds.mcp.routes` / `CDS_MCP_ROUTES`). |
 | `srv/lib/auth.js` | Validates the IAS JWT via `@sap/xssec`; dev fallback via `x-dev-email`. |
 | `srv/lib/proxy.js` | Resolves the per-route destination and streams the request through the connectivity proxy (SSE-safe). |
+| `http/verify-router.http` | Placeholder-only requests for health, IAS discovery/token exchange, MCP initialization, and an optional OData check. |
 | `mta.yaml` | MTA descriptor (module + destination/connectivity/identity/application-logs). |
 | `manifest.yml` | Quick `cf push` alternative. |
 
 ## Configuration
 
-Runtime config lives under `cds.mcp` in `package.json`. There are two supported
-configuration shapes:
+Runtime config lives under `cds.mcp` in `package.json`. The shipped configuration
+uses an explicit `routes` array; the legacy flat configuration without `routes`
+remains supported for existing deployments.
 
 | What you want | Configuration | Public app path |
 | ------------- | ------------- | --------------- |
-| Default MCP route | Set the flat `backendPath` | Fixed at `/mcp` |
-| One route with a custom public path | Set `routes` with one entry | The entry's `path`, e.g. `/odata` or `/api` |
+| Default MCP route | Keep the shipped route entry | Explicitly `/mcp` |
+| One route with a custom public path | Edit the shipped route entry | Set `path`, e.g. `/odata` or `/api` |
 | Multiple MCP, OData, or other routes | Set `routes` with multiple entries | Each entry has its own `path` |
 
-In both shapes, anything after the public app path is appended to
+For every route, anything after the public app path is appended to
 `backendPath`. For example, a route with `"path": "/odata"` and
 `"backendPath": "/sap/opu/odata/sap"` maps
 `/odata/API_BUSINESS_PARTNER/A_BusinessPartner` to
 `/sap/opu/odata/sap/API_BUSINESS_PARTNER/A_BusinessPartner`.
 
-### Option 1: default `/mcp` path
+### Default `/mcp` path
 
-The flat configuration exposes one catch-all route at `/mcp`:
+The shipped configuration makes the public path explicit, so changing it does
+not require restructuring `package.json`:
 
 ```jsonc
 "mcp": {
   "destination": "pm4-bp-ssl",        // BTP destination (OnPremise, PrincipalPropagation)
   "backendPath": "/sap/zmcp2/ZMCPX",  // base path of the MCP handler on the ABAP system
   "locationId": "PM4-Sydney",         // SAP Cloud Connector Location ID (must match the SCC)
-  "timeout": 120000                   // ms; applied to non-streaming calls only
+  "timeout": 120000,                  // ms; applied to non-streaming calls only
+  "routes": [
+    {
+      "path": "/mcp",                 // public app URL prefix
+      "peek": true                    // log the JSON-RPC method (MCP only)
+    }
+  ]
 }
 ```
 
-The public path is fixed in this shape; `destination`, `backendPath`,
-`locationId`, and `timeout` remain configurable. Use the `routes` array below
-when the public path should be something other than `/mcp`.
+Edit `path` to change the public prefix, or add more route entries as shown
+below. The route inherits `destination`, `backendPath`, `locationId`, and
+`timeout` from the top-level values.
 
-Override the flat values without editing code (or rebuilding) via env vars, e.g.
-`CDS_MCP_DESTINATION`, `CDS_MCP_BACKENDPATH`, `CDS_MCP_LOCATIONID`.
+Override the shared top-level values without editing code (or rebuilding) via
+env vars, e.g. `CDS_MCP_DESTINATION`, `CDS_MCP_BACKENDPATH`,
+`CDS_MCP_LOCATIONID`.
 The deploy descriptors provide the initial flat values for
 `CDS_MCP_BACKENDPATH` and `CDS_MCP_LOCATIONID`, so you can retarget a running
 app with:
@@ -197,14 +217,13 @@ The destination's `sap-client` is appended as a query parameter automatically.
 > the ICF node the ABAP MCP server is actually published on, and adjust the env
 > var if it differs.
 
-### Option 2: custom or multiple paths
+### Custom or multiple paths
 
-By default the app exposes a single `/mcp` route (the flat config above). You can
-instead expose **one custom path or several paths** under the same app by setting
-a `routes` array. Each route is authenticated and has its own public `path` and
-backend `backendPath`. Every route still uses the same IAS SSO + principal
-propagation and the same Cloud Connector; only the target path (and, optionally,
-destination / verbs / logging) differs.
+To expose **one custom path or several paths** under the same app, edit or extend
+the shipped `routes` array. Each route is authenticated and has its own public
+`path` and backend `backendPath`. Every route still uses the same IAS SSO +
+principal propagation and the same Cloud Connector; only the target path (and,
+optionally, destination / verbs / logging) differs.
 
 `path` can be any app URL prefix; `/mcp`, `/odata`, and `/api` are examples, not
 a fixed list of allowed values.
@@ -241,10 +260,10 @@ Per-route keys:
 | Key           | Default                    | Notes                                                                 |
 | ------------- | -------------------------- | --------------------------------------------------------------------- |
 | `path`        | `/mcp`                     | App URL prefix (leading `/` added if omitted). Catch-all sub-paths.   |
-| `backendPath` | flat `backendPath`         | ABAP base path the prefix maps to.                                    |
-| `destination` | flat `destination`         | Override the BTP destination per route.                               |
-| `locationId`  | flat `locationId`          | Override the SCC Location ID per route.                               |
-| `timeout`     | flat `timeout`             | Non-streaming timeout (ms).                                           |
+| `backendPath` | top-level `backendPath`    | ABAP base path the prefix maps to.                                    |
+| `destination` | top-level `destination`    | Override the BTP destination per route.                               |
+| `locationId`  | top-level `locationId`     | Override the SCC Location ID per route.                               |
+| `timeout`     | top-level `timeout`        | Non-streaming timeout (ms).                                           |
 | `peek`        | `false`                    | Buffer small POST bodies to log the JSON-RPC method. Enable for MCP only. |
 | `methods`     | *(all verbs)*              | Lowercase allowlist, e.g. `["post","get","delete"]`. Omit to accept every verb, including OData's `MERGE`. |
 
@@ -337,7 +356,7 @@ created by the `identity` binding (get its credentials with
 
 | Setting | Value |
 | --- | --- |
-| **Route URL** | `https://<app-url>/<configured-path>`; for example `/mcp/all` → `/sap/zmcp2/ZMCPX/all` |
+| **Route URL** | Run `cf app mcp-router-srv` and prefix the displayed route with `https://`, then append the configured path; for example `/mcp/all` → `/sap/zmcp2/ZMCPX/all` |
 | **Auth** | OAuth 2.0 — Authorization Code (+ PKCE / client secret) |
 | **Client id / audience** | IAS `clientid` (the token `aud` **must** equal this) |
 | **Client secret** | IAS `clientsecret` (or use PKCE) |

@@ -1,0 +1,58 @@
+### Verify the BTP Router with an IAS user token
+### Works with VS Code REST Client and compatible .http clients.
+### Replace placeholders locally. Never commit secrets, codes, or tokens.
+
+@appUrl = https://<route-from-cf-app>
+@iasHost = <tenant>.accounts.ondemand.com
+@clientId = <identity-service-clientid>
+@clientSecret = <identity-service-clientsecret>
+@redirectUri = http://localhost:8080/callback
+@authCode = <paste-fresh-authorization-code>
+
+### 1. Public liveness check
+GET {{appUrl}}/health
+Accept: application/json
+
+### 2. IAS discovery; verify that issuer and endpoints belong to your tenant
+GET https://{{iasHost}}/.well-known/openid-configuration
+Accept: application/json
+
+### 3. Open this URL in a browser and sign in
+### Add http://localhost:8080/callback to the IAS app's redirect URIs first.
+### The callback page may not load; copy the `code` query parameter from its URL.
+###
+### https://{{iasHost}}/oauth2/authorize?response_type=code&client_id={{clientId}}&redirect_uri=http://localhost:8080/callback&scope=openid%20email%20offline_access
+
+### 4. Exchange the fresh authorization code for an IAS token
+# @name token
+POST https://{{iasHost}}/oauth2/token
+Content-Type: application/x-www-form-urlencoded
+Accept: application/json
+
+grant_type=authorization_code&code={{authCode}}&redirect_uri={{redirectUri}}&client_id={{clientId}}&client_secret={{clientSecret}}
+
+### 5. MCP initialize through the default /mcp route
+POST {{appUrl}}/mcp
+Authorization: Bearer {{token.response.body.$.access_token}}
+Accept: application/json, text/event-stream
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "router-verification",
+      "version": "1.0"
+    }
+  }
+}
+
+### 6. Optional OData example; enable/configure an /odata route first
+### Replace the service path with one exposed by your backend.
+GET {{appUrl}}/odata/<SERVICE>/$metadata
+Authorization: Bearer {{token.response.body.$.access_token}}
+Accept: application/xml
