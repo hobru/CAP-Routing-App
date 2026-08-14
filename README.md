@@ -437,6 +437,15 @@ OnPremise / PrincipalPropagation**:
      scenario requires application trust, mark that entry trusted as well.
   4. Enable **Automatic Trust Synchronization** so signing-key rotations do not
      break propagation later.
+  5. Under **Configuration → On Premise**, verify that the **CA Certificate**
+     used to sign short-lived user certificates is present, valid, and includes
+     its private key.
+  6. Under **Principal Propagation**, make the subject pattern match claims that
+     actually exist in the IAS token. `${name}` prefers `user_name` over
+     `email`; therefore, if CERTRULE maps the certificate CN to the user's SU01
+     e-mail, use `CN=${email}` rather than `CN=${name}`. Do not use `${mail}`
+     unless the token contains a `mail` claim. **Generate Sample Certificate**
+     is useful for checking the resulting subject before another request.
 - **ABAP**: STRUST SSL server PSE, `icm/HTTPS/verify_client=1`,
   `icm/trusted_reverse_proxy_0`, `login/certificate_mapping_rulebased=1`, and a
   **CERTRULE** mapping email → ABAP user. Detailed in
@@ -460,6 +469,7 @@ OnPremise / PrincipalPropagation**:
 | `401 … reason=invalid_token` | Wrong signature / issuer / **audience** | Token `aud` must equal the IAS `clientid`; check IAS federation |
 | IAS: `redirect_uri … must match` | Redirect URI not on the app (or propagation delay) | Add the exact URI to the IAS app; retry after ~1 min |
 | `SSO token validation failed … trust … cloud connector` | Router accepted the IAS token, but Cloud Connector does not trust its issuer/application | In Cloud Connector **Principal Propagation**, choose **Synchronize**, then mark the IAS entry trusted; verify SCC 2.13+ and that the subaccount trusts the same IAS tenant |
+| `Unable to generate authorization token for user … on system …` | Cloud Connector trusts the token but cannot create the short-lived X.509 certificate | Check the SCC CA certificate/private key and subject pattern. Use only available token claims; for e-mail-based CERTRULE mapping, prefer `${email}` over `${name}` or `${mail}` |
 | `502 … Registered endpoint failed to handle the request` | App crashed / not responding | `cf logs --recent`; check the app booted (`server … launched`) |
 | `no SAP Cloud Connector (SCC) connected … matching the requested tunnel` | Location ID empty or mismatched | Set `CDS_MCP_LOCATIONID` to the SCC's location (case-sensitive) and restage |
 | `502 connectivity_error` | OnPremise destination without connectivity binding | Ensure `connectivity` + `destination` services are bound |
