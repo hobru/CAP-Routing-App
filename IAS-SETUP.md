@@ -91,8 +91,6 @@ IAS user may call `/mcp`). To also gate on authorization:
 2. Map the group to the `mcp.User` role, and add an explicit role check in
    `srv/lib/auth.js` after token validation.
 
-Ask if you want this wired in.
-
 ## Quick verification after configuration
 
 ```bash
