@@ -54,6 +54,20 @@ function filterRequestHeaders(reqHeaders) {
   return out
 }
 
+function buildTargetUrl(destinationUrl, backendPath, requestPath) {
+  const base = destinationUrl.replace(/\/+$/, '')
+  const backend = backendPath || ''
+  const request = requestPath || ''
+  let path
+
+  if (!backend || backend === '/') path = request
+  else if (!request || request === '/') path = backend
+  else path = `${backend.replace(/\/+$/, '')}/${request.replace(/^\/+/, '')}`
+
+  if (path && !path.startsWith('/')) path = `/${path}`
+  return new URL(base + (path || '/'))
+}
+
 /**
  * Resolve the OnPremise destination (with the user JWT for principal
  * propagation) and stream the MCP request through the connectivity proxy to the
@@ -61,7 +75,13 @@ function filterRequestHeaders(reqHeaders) {
  */
 async function proxyToBackend(req, res) {
   const started = Date.now()
-  const { destination: destinationName, backendPath, timeout } = cds.env.mcp || {}
+  const mcp = cds.env.mcp || {}
+  const route = req.mcpRoute || {}
+  // Per-route config (multi-route), falling back to the flat cds.mcp defaults so
+  // a single-route/legacy setup keeps working unchanged.
+  const destinationName = route.destination || mcp.destination
+  const backendPath = route.backendPath != null ? route.backendPath : mcp.backendPath
+  const timeout = route.timeout || mcp.timeout
   const cid = req.correlationId
   const mcpMethod = req.parsedMcpMethod // set by the router when a body is buffered (optional)
 
@@ -81,8 +101,7 @@ async function proxyToBackend(req, res) {
   // Build the absolute backend target URL. Anything after the /mcp mount point
   // is appended, and the destination's sap-client is added as a query param.
   const subPath = req.url && req.url !== '/' ? req.url : ''
-  const base = destination.url.replace(/\/$/, '')
-  const target = new URL(base + (backendPath || '') + subPath)
+  const target = buildTargetUrl(destination.url, backendPath, subPath)
   const sapClient = destination.sapClient || destination.originalProperties?.['sap-client']
   if (sapClient && !target.searchParams.has('sap-client')) {
     target.searchParams.set('sap-client', sapClient)
@@ -107,6 +126,7 @@ async function proxyToBackend(req, res) {
   // Prefer an explicit BTP-configured value; fall back to whatever the SDK
   // resolved from the destination.
   const locationId =
+    route.locationId ||
     (cds.env.mcp && cds.env.mcp.locationId) ||
     process.env.CDS_MCP_LOCATIONID ||
     destination.cloudConnectorLocationId ||
@@ -145,6 +165,7 @@ async function proxyToBackend(req, res) {
 
   LOG.info('mcp request → backend', {
     correlationId: cid,
+    route: route.path,
     method: req.method,
     mcpMethod,
     user: req.principal?.email,
@@ -201,4 +222,4 @@ function sendError(res, status, error, detail) {
   res.json({ error, detail })
 }
 
-module.exports = { proxyToBackend }
+module.exports = { buildTargetUrl, proxyToBackend }

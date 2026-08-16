@@ -46,13 +46,14 @@ cf service-key mcp-router-identity k1
 
 ## 3. Configure the OAuth 2.0 / OIDC client (the caller)
 
-On the app under **Client Authentication** / **Single Sign-On**:
+On the app under **Client Authentication** / **Single Sign-On**, open
+**OpenID Connect Configuration**:
 
 | Setting | Value |
 | --- | --- |
-| Redirect URIs | The caller's callback. For Copilot Studio / Power Platform connectors this is typically `https://global.consent.azure-apim.net/redirect/<connector>`; for Bot Framework connectors `https://token.botframework.com/.auth/web/redirect`. `mta.yaml` already seeds a `https://global.consent.azure-apim.net/redirect/**` wildcard (so redeploys don't wipe it) — add any tenant-specific URIs here too. |
-| Grant types | `authorization_code` + `refresh_token` (interactive SSO). Use `client_credentials` only for non-user/technical calls. |
-| Client authentication | Enable **PKCE**, or issue a **client secret** (`clientsecret` above). |
+| Redirect URIs | The caller's callback. You may only learn the exact URI after creating or configuring the connector in Copilot Studio or Power Automate; copy it from there, then return to this IAS screen and add it. Use `http://localhost:8080/callback` for the included `.http` test and Bruno, `https://oauth.pstmn.io/v1/callback` for Postman, and typically `https://global.consent.azure-apim.net/redirect/<connector>` for Power Platform. `mta.yaml` seeds these callbacks. Add any other exact callback to both IAS and `mta.yaml`, or a later MTA redeploy will remove it. |
+| Grant types | Choose **Authorization Code / Enforce PKCE (S256)** when Bruno's **Use PKCE** is enabled; otherwise choose **Authorization Code**. Also enable `refresh_token` for interactive SSO. Use `client_credentials` only for non-user/technical calls. |
+| Client authentication | For Bruno with a client secret, use the `clientsecret` from the service key. PKCE is recommended, but its setting must match the selected IAS authorization-code grant type. |
 | Authorization / Token endpoints | `<url>/oauth2/authorize` and `<url>/oauth2/token` from the tenant `url`. |
 
 ## 4. Audience (most common failure point)
@@ -90,22 +91,59 @@ IAS user may call `/mcp`). To also gate on authorization:
 2. Map the group to the `mcp.User` role, and add an explicit role check in
    `srv/lib/auth.js` after token validation.
 
-Ask if you want this wired in.
-
 ## Quick verification after configuration
 
-```bash
-# 1. obtain a token (authorization_code via browser, or client_credentials for a test)
-# 2. call the router
-curl -i https://<app-url>/mcp \
-  -H "Authorization: Bearer <token>" \
-  -H "content-type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}'
-```
+The repository includes [`http/verify-router.http`](./http/verify-router.http)
+for VS Code REST Client and compatible IDE clients. It contains placeholders
+only—never commit a real client secret, authorization code, or token.
+
+1. Get the application URL. `cf app` prints the hostname on its `routes` line;
+   prefix it with `https://`:
+   ```bash
+   cf app mcp-router-srv
+   # routes: my-router.cfapps.<region>.hana.ondemand.com
+   # app URL: https://my-router.cfapps.<region>.hana.ondemand.com
+   ```
+2. In IAS, add the redirect URI used by your test client. The included `.http`
+   flow uses `http://localhost:8080/callback`. Postman and Bruno show their
+   callback URI in the OAuth 2.0 configuration; add that exact value.
+3. Copy `url`, `clientid`, and `clientsecret` from:
+   ```bash
+   cf service-key mcp-router-identity k1
+   ```
+4. Fill in the placeholders at the top of `http/verify-router.http`. Open its
+   authorization URL in a browser, sign in, copy the `code` from the localhost
+   callback URL (the page itself may fail to load), and run the token request.
+5. Run the MCP `initialize` request or adapt the final request to your configured
+   OData/HTTP route.
+
+### Postman or Bruno
+
+Create an OAuth 2.0 **Authorization Code** configuration with:
+
+| Setting | Value |
+| --- | --- |
+| Authorization URL | `https://<ias-host>/oauth2/authorize` |
+| Access Token URL | `https://<ias-host>/oauth2/token` |
+| Client ID / secret | Values from the `mcp-router-identity` service key |
+| Scope | `openid email offline_access` |
+| Callback URL | Bruno: `http://localhost:8080/callback`; Postman: `https://oauth.pstmn.io/v1/callback`. The exact value must also exist in IAS. |
+| PKCE | If enabled in Bruno, select **Authorization Code / Enforce PKCE (S256)** in IAS. If IAS uses plain **Authorization Code**, disable Bruno's **Use PKCE**. |
+
+Request a user token, select it as the Bearer token, and call:
+
+- `POST https://<app-url>/mcp` with the MCP `initialize` body from the `.http`
+  file, or
+- your configured OData/HTTP route with the method and body required by that API.
 
 - `401 unauthorized reason=invalid_token` → signature/issuer/**audience** wrong.
 - `401 ... reason=missing_bearer_token` → no `Authorization` header.
 - `502 destination_error` → token OK, destination/connectivity not resolving.
 - `200` / SSE stream → full chain working.
+- IAS shows *"OpenID provider cannot process the request because the
+  configuration is incorrect"* before login → ensure Bruno's **Callback URL is
+  not empty**, compare it character-for-character with the IAS redirect URI,
+  confirm the Authorization URL starts with `https://`, then verify that Bruno's
+  **Use PKCE** setting matches the IAS authorization-code grant type.
 
 Check `cf logs mcp-router-srv --recent` and correlate by `x-correlation-id`.

@@ -1,6 +1,7 @@
 const cds = require('@sap/cds')
 const { randomUUID } = require('node:crypto')
 const mountMcpRouter = require('./mcp-router')
+const { resolveRoutes } = require('./lib/routes')
 
 const LOG = cds.log('mcp')
 
@@ -33,8 +34,7 @@ cds.on('bootstrap', (app) => {
   mountMcpRouter(app)
 
   LOG.info('mcp-router bootstrapped', {
-    destination: cds.env.mcp?.destination,
-    backendPath: cds.env.mcp?.backendPath,
+    routes: resolveRoutes().map((r) => `${r.path} → ${r.destination}${r.backendPath}`),
     profiles: cds.env.profiles,
   })
 })

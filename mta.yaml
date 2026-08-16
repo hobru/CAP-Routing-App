@@ -14,19 +14,10 @@ modules:
       buildpack: nodejs_buildpack
       memory: 256M
       disk-quota: 512M
-    properties:
-      # ABAP MCP endpoint. Everything a client appends after /mcp is routed
-      # under this path (e.g. /mcp/finance → /sap/zmcp2/ZMCPX/finance).
-      # Override at any time without a rebuild:
-      #   cf set-env mcp-router-srv CDS_MCP_BACKENDPATH /sap/zmcp2/ZMCPX_TEST
-      #   cf restage mcp-router-srv
-      CDS_MCP_BACKENDPATH: /sap/zmcp2/ZMCPX
-      # SAP Cloud Connector Location ID. Must match the location the SCC is
-      # registered under in this subaccount (and the destination's location).
-      # Override without a rebuild:
-      #   cf set-env mcp-router-srv CDS_MCP_LOCATIONID PM4-Sydney
-      #   cf restage mcp-router-srv
-      CDS_MCP_LOCATIONID: PM4-Sydney
+    # Route configuration comes from cds.mcp in package.json. To override it on
+    # a running app, set CDS_MCP_* variables explicitly and restage the app.
+    # Do not add environment-specific defaults here: MTA properties take
+    # precedence over package.json and would silently replace its values.
     build-parameters:
       builder: npm
     provides:
@@ -68,6 +59,10 @@ resources:
           # admin UI get wiped on the next `cf deploy`).
           redirect-uris:
             - https://*.${default-domain}/**
+            # Local callback used by http/verify-router.http.
+            - http://localhost:8080/callback
+            # Default callback used by Postman's OAuth 2.0 helper.
+            - https://oauth.pstmn.io/v1/callback
             # Microsoft Copilot Studio / Power Platform custom-connector callback.
             # The ** wildcard covers the per-connector redirect path, so new
             # connectors keep working without re-editing IAS.
