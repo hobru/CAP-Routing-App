@@ -60,12 +60,12 @@ function normalizeRoute(raw, mcp) {
   return {
     path,
     destination: raw.destination || mcp.destination,
-    backendPath: raw.backendPath || mcp.backendPath || '',
-    locationId: raw.locationId || mcp.locationId,
-    timeout: raw.timeout || mcp.timeout,
+    backendPath: raw.backendPath != null ? raw.backendPath : (mcp.backendPath || ''),
+    locationId: raw.locationId != null ? raw.locationId : mcp.locationId,
+    timeout: raw.timeout != null ? raw.timeout : mcp.timeout,
     peek: raw.peek === true,
     methods,
   }
 }
 
-module.exports = { resolveRoutes }
+module.exports = { normalizeRoute, resolveRoutes }

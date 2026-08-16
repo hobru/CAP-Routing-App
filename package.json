@@ -17,6 +17,7 @@
   },
   "scripts": {
     "start": "cds-serve",
+    "test": "node --test test/*.test.js",
     "watch": "cds watch"
   },
   "cds": {

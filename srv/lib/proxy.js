@@ -54,6 +54,20 @@ function filterRequestHeaders(reqHeaders) {
   return out
 }
 
+function buildTargetUrl(destinationUrl, backendPath, requestPath) {
+  const base = destinationUrl.replace(/\/+$/, '')
+  const backend = backendPath || ''
+  const request = requestPath || ''
+  let path
+
+  if (!backend || backend === '/') path = request
+  else if (!request || request === '/') path = backend
+  else path = `${backend.replace(/\/+$/, '')}/${request.replace(/^\/+/, '')}`
+
+  if (path && !path.startsWith('/')) path = `/${path}`
+  return new URL(base + (path || '/'))
+}
+
 /**
  * Resolve the OnPremise destination (with the user JWT for principal
  * propagation) and stream the MCP request through the connectivity proxy to the
@@ -87,8 +101,7 @@ async function proxyToBackend(req, res) {
   // Build the absolute backend target URL. Anything after the /mcp mount point
   // is appended, and the destination's sap-client is added as a query param.
   const subPath = req.url && req.url !== '/' ? req.url : ''
-  const base = destination.url.replace(/\/$/, '')
-  const target = new URL(base + (backendPath || '') + subPath)
+  const target = buildTargetUrl(destination.url, backendPath, subPath)
   const sapClient = destination.sapClient || destination.originalProperties?.['sap-client']
   if (sapClient && !target.searchParams.has('sap-client')) {
     target.searchParams.set('sap-client', sapClient)
@@ -209,4 +222,4 @@ function sendError(res, status, error, detail) {
   res.json({ error, detail })
 }
 
-module.exports = { proxyToBackend }
+module.exports = { buildTargetUrl, proxyToBackend }

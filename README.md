@@ -51,7 +51,7 @@ Copilot Studio ──HTTPS+Bearer(IAS)──▶ BTP Router (CAP, CF) ──conne
 Five steps from clone to a working SSO call. Details for each are below.
 
 > **Prerequisite — the BTP destination must already exist.** The app forwards to
-> whatever destination `CDS_MCP_DESTINATION` names (default `pm4-bp-ssl`). Create
+> the destination configured in `package.json` (default `pm4-bp-ssl`). Create
 > it in the subaccount **before** the first call. For a *quick first test* you can
 > even start with a **Basic authentication** destination to a reachable backend
 > and switch to OnPremise + PrincipalPropagation later — see
@@ -75,12 +75,9 @@ Five steps from clone to a working SSO call. Details for each are below.
      ]
    }
    ```
-   For an MTA deployment, also set the matching `CDS_MCP_BACKENDPATH` and
-   `CDS_MCP_LOCATIONID` values in `mta.yaml`, because deployment environment
-   variables override `package.json`. If your destination has no Location ID
-   (common in an initial BTP Trial test), omit `locationId` and
-   `CDS_MCP_LOCATIONID`. See [Configuration](#configuration) for custom or
-   multiple public paths.
+   Both MTA and `cf push` deployments use these `package.json` values by default.
+   If your destination has no Location ID, omit `locationId`. See
+   [Configuration](#configuration) for custom or multiple public paths.
 2. **Deploy** to Cloud Foundry (creates the app + destination/connectivity/
    identity/logs services and an IAS application):
    ```bash
@@ -142,7 +139,8 @@ through the connectivity/principal-propagation headers.
 
 Runtime config lives under `cds.mcp` in `package.json`. The shipped configuration
 uses an explicit `routes` array; the legacy flat configuration without `routes`
-remains supported for existing deployments.
+remains supported for existing deployments. `mta.yaml` and `manifest.yml` do not
+set route-specific values, so a deployment uses the configuration you build.
 
 | What you want | Configuration | Public app path |
 | ------------- | ------------- | --------------- |
@@ -182,16 +180,18 @@ below. The route inherits `destination`, `backendPath`, `locationId`, and
 
 Override the shared top-level values without editing code (or rebuilding) via
 env vars, e.g. `CDS_MCP_DESTINATION`, `CDS_MCP_BACKENDPATH`,
-`CDS_MCP_LOCATIONID`.
-The deploy descriptors provide the initial flat values for
-`CDS_MCP_BACKENDPATH` and `CDS_MCP_LOCATIONID`, so you can retarget a running
-app with:
+`CDS_MCP_LOCATIONID`. Set these only when you intentionally want CF runtime
+configuration to take precedence over `package.json`, then restage:
 
 ```bash
 cf set-env mcp-router-srv CDS_MCP_BACKENDPATH /sap/zmcp2/ZMCPX_TEST
 cf set-env mcp-router-srv CDS_MCP_LOCATIONID PM4-Sydney
 cf restage mcp-router-srv
 ```
+
+If a deployment still resolves old values, inspect `cf env mcp-router-srv` and
+remove stale overrides with `cf unset-env mcp-router-srv <VARIABLE>` before
+restaging.
 
 > **Location ID:** OnPremise requests carry a `SAP-Connectivity-SCC-Location_ID`
 > header so the connectivity proxy can pick the right Cloud Connector tunnel. It
@@ -213,9 +213,8 @@ routed onto `backendPath`. So with the default `backendPath`:
 
 The destination's `sap-client` is appended as a query parameter automatically.
 
-> **Note:** `backendPath` defaults to `/sap/zmcp2/ZMCPX` — confirm this matches
-> the ICF node the ABAP MCP server is actually published on, and adjust the env
-> var if it differs.
+> **Note:** the shipped `backendPath` is `/sap/zmcp2/ZMCPX` — confirm this
+> matches the backend endpoint and change `package.json` if it differs.
 
 ### Custom or multiple paths
 
@@ -316,7 +315,7 @@ Target: your CF **org** and **space** (subaccount region **ap20** in this
 example). Set them with `cf target -o <org> -s <space>`.
 
 > **Before you deploy:** make sure the **BTP destination** the app forwards to
-> (default `pm4-bp-ssl`, or whatever `CDS_MCP_DESTINATION` names) exists in the
+> (default `pm4-bp-ssl`, or the value configured in `package.json`) exists in the
 > subaccount. Without it, requests fail at the proxy step. See
 > [Required BTP / backend configuration](#required-btp--backend-configuration)
 > for the destination properties (and a Basic-auth option for a first test).
@@ -468,7 +467,7 @@ OnPremise / PrincipalPropagation**:
 | `401 … reason=missing_bearer_token` | No `Authorization` header | Caller isn't sending the IAS token |
 | `401 … reason=invalid_token` | Wrong signature / issuer / **audience** | Token `aud` must equal the IAS `clientid`; check IAS federation |
 | IAS: `redirect_uri … must match` | Redirect URI not on the app (or propagation delay) | Add the exact URI to the IAS app; retry after ~1 min |
-| `SSO token validation failed … trust … cloud connector` | Router accepted the IAS token, but Cloud Connector does not trust its issuer/application | In Cloud Connector **Principal Propagation**, choose **Synchronize**, then mark the IAS entry trusted; verify SCC 2.13+ and that the subaccount trusts the same IAS tenant |
+| `SSO token validation failed … trust … cloud connector` | Router accepted the IAS token, but the current subaccount's Cloud Connector trust does not include its IAS issuer/application | In SCC, select the **same BTP subaccount as the deployed app** and confirm it is connected; under **Principal Propagation**, choose **Synchronize**, then trust the IAS entry. This rejection can occur before the tunnel, so SCC request logs may remain empty |
 | `Unable to generate authorization token for user … on system …` | Cloud Connector trusts the token but cannot create the short-lived X.509 certificate | Check the SCC CA certificate/private key and subject pattern. Use only available token claims; for e-mail-based CERTRULE mapping, prefer `${email}` over `${name}` or `${mail}` |
 | `502 … Registered endpoint failed to handle the request` | App crashed / not responding | `cf logs --recent`; check the app booted (`server … launched`) |
 | `no SAP Cloud Connector (SCC) connected … matching the requested tunnel` | Location ID empty or mismatched | Set `CDS_MCP_LOCATIONID` to the SCC's location (case-sensitive) and restage |

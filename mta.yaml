@@ -14,29 +14,10 @@ modules:
       buildpack: nodejs_buildpack
       memory: 256M
       disk-quota: 512M
-    properties:
-      # ABAP MCP endpoint. Everything a client appends after /mcp is routed
-      # under this path (e.g. /mcp/finance → /sap/zmcp2/ZMCPX/finance).
-      # Override at any time without a rebuild:
-      #   cf set-env mcp-router-srv CDS_MCP_BACKENDPATH /sap/zmcp2/ZMCPX_TEST
-      #   cf restage mcp-router-srv
-      CDS_MCP_BACKENDPATH: /sap/zmcp2/ZMCPX
-      # SAP Cloud Connector Location ID. Must match the location the SCC is
-      # registered under in this subaccount (and the destination's location).
-      # Override without a rebuild:
-      #   cf set-env mcp-router-srv CDS_MCP_LOCATIONID PM4-Sydney
-      #   cf restage mcp-router-srv
-      CDS_MCP_LOCATIONID: PM4-Sydney
-      # OPTIONAL runtime override for the `routes` array in package.json. The
-      # shipped array explicitly exposes /mcp. To expose several backend paths
-      # under one app (each still authenticated + principal-propagated), replace
-      # it with a JSON array here. Per-route destination/locationId/timeout fall
-      # back to the values above; `peek` logs the JSON-RPC method (MCP only); a
-      # `methods` allowlist restricts verbs (omit to allow all, incl. OData MERGE).
-      # Override without a rebuild:
-      #   cf set-env mcp-router-srv CDS_MCP_ROUTES '[{"path":"/mcp","backendPath":"/sap/zmcp2/ZMCPX","peek":true,"methods":["post","get","delete"]},{"path":"/odata","backendPath":"/sap/opu/odata/IWBEP"}]'
-      #   cf restage mcp-router-srv
-      # CDS_MCP_ROUTES: '[{"path":"/mcp","backendPath":"/sap/zmcp2/ZMCPX","peek":true},{"path":"/odata","backendPath":"/sap/opu/odata/IWBEP"}]'
+    # Route configuration comes from cds.mcp in package.json. To override it on
+    # a running app, set CDS_MCP_* variables explicitly and restage the app.
+    # Do not add environment-specific defaults here: MTA properties take
+    # precedence over package.json and would silently replace its values.
     build-parameters:
       builder: npm
     provides:
