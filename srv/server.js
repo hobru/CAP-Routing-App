@@ -1,7 +1,7 @@
 const cds = require('@sap/cds')
 const { randomUUID } = require('node:crypto')
 const mountMcpRouter = require('./mcp-router')
-const { resolveRoutes } = require('./lib/routes')
+const { resolveRoutes, describeRoutes } = require('./lib/routes')
 
 const LOG = cds.log('mcp')
 
@@ -29,6 +29,22 @@ cds.on('bootstrap', (app) => {
   // Lightweight liveness probe (unauthenticated) for CF health checks.
   app.get('/health', (_req, res) => {
     res.json({ status: 'UP', service: 'mcp-router', ts: new Date().toISOString() })
+  })
+
+  // Read-only view of the resolved routing configuration, so operators can see
+  // — from a browser or `curl`, without digging through User-Provided Variables
+  // in the BTP cockpit — which destination and backend path each public path
+  // maps to. Exposes only configuration identifiers (destination names, public
+  // paths, backend paths, SCC location ids); never tokens, credentials, or the
+  // backend host URL (that lives in the BTP destination and is resolved
+  // per-request with the caller's JWT).
+  app.get('/config', (_req, res) => {
+    res.json({
+      service: 'mcp-router',
+      profiles: cds.env.profiles,
+      ts: new Date().toISOString(),
+      ...describeRoutes(),
+    })
   })
 
   mountMcpRouter(app)

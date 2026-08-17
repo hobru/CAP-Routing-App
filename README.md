@@ -98,6 +98,7 @@ Five steps from clone to a working SSO call. Details for each are below.
    ```bash
    cf app mcp-router-srv
    curl https://<route-from-cf>/health     # {"status":"UP"}
+   curl https://<route-from-cf>/config     # resolved routes → destination + backendPath
    ```
    Then use [`http/verify-router.http`](./http/verify-router.http), Postman, or
    Bruno for an authenticated end-to-end call. See
@@ -130,9 +131,9 @@ through the connectivity/principal-propagation headers.
 
 | File | Purpose |
 | --- | --- |
-| `srv/server.js` | CAP bootstrap: correlation-id middleware, `/health`, mounts the router(s) before CAP's body parsers (so bodies can stream). |
+| `srv/server.js` | CAP bootstrap: correlation-id middleware, `/health`, `/config`, mounts the router(s) before CAP's body parsers (so bodies can stream). |
 | `srv/mcp-router.js` | Mounts one authenticated Express router per configured route (default `/mcp`); auth guard + optional JSON-RPC method peek for logging; forwards all HTTP verbs. |
-| `srv/lib/routes.js` | Resolves the route table from config (single-route default or multi-route `cds.mcp.routes` / `CDS_MCP_ROUTES`). |
+| `srv/lib/routes.js` | Resolves the route table from config: grouped `cds.mcp.destinations` / `CDS_MCP_DESTINATIONS`, multi-route `cds.mcp.routes` / `CDS_MCP_ROUTES`, or the single-route default. Also exposes the safe view behind `/config`. |
 | `srv/lib/auth.js` | Validates the IAS JWT via `@sap/xssec`; dev fallback via `x-dev-email`. |
 | `srv/lib/proxy.js` | Resolves the per-route destination and streams the request through the connectivity proxy (SSE-safe). |
 | `http/verify-router.http` | Placeholder-only requests for health, IAS discovery/token exchange, MCP initialization, and an optional OData check. |
@@ -292,6 +293,108 @@ cf restage mcp-router-srv
 
 If `routes` is absent (or `CDS_MCP_ROUTES` is invalid JSON) the app falls back to
 the single `/mcp` route from the flat config — existing deployments are unaffected.
+
+### Multiple destinations
+
+The per-route `destination` key already lets individual routes target different
+BTP destinations. When you proxy to **more than one backend system**, the
+grouped `destinations` shape is clearer: each entry binds **one** BTP
+destination and can expose **many** routes, each with its own public `path` and
+backend `backendPath`. A destination group's `name`, `locationId`, `timeout`,
+and `backendPath` become the defaults for all of its routes (a route can still
+override any of them).
+
+```jsonc
+"mcp": {
+  "timeout": 120000,                 // global default for every route
+  "destinations": [
+    {
+      "name": "pm4-bp-ssl",          // BTP destination #1 (OnPremise, PrincipalPropagation)
+      "locationId": "PM4-Sydney",    // SCC location shared by this group's routes
+      "routes": [
+        {
+          "path": "/mcp",                        // → pm4-bp-ssl /sap/zmcp2/ZMCPX
+          "backendPath": "/sap/zmcp2/ZMCPX",
+          "peek": true,
+          "methods": ["post", "get", "delete"]
+        },
+        {
+          "path": "/odata",                       // → pm4-bp-ssl /sap/opu/odata/IWBEP
+          "backendPath": "/sap/opu/odata/IWBEP"
+        }
+      ]
+    },
+    {
+      "name": "other-backend",       // BTP destination #2 (its own SCC tunnel)
+      "locationId": "PM4-Tokyo",
+      "routes": [
+        { "path": "/api2", "backendPath": "/sap/zsvc/ZOTHER" }   // → other-backend /sap/zsvc/ZOTHER
+      ]
+    }
+  ]
+}
+```
+
+Every route across all destinations still shares the same IAS SSO + principal
+propagation; only the target destination and path differ. The route table above
+resolves to:
+
+| Client calls (app URL)     | Destination     | Reaches on ABAP                        |
+| -------------------------- | --------------- | -------------------------------------- |
+| `/mcp/ALL`                 | `pm4-bp-ssl`    | `/sap/zmcp2/ZMCPX/ALL`                 |
+| `/odata/MY_SRV/$metadata`  | `pm4-bp-ssl`    | `/sap/opu/odata/IWBEP/MY_SRV/$metadata`|
+| `/api2/foo`                | `other-backend` | `/sap/zsvc/ZOTHER/foo`                 |
+
+Destination group keys: `name` (the BTP destination), `routes` (its routes),
+and optional `backendPath` / `locationId` / `timeout` defaults inherited by
+those routes. Per-route keys are the same as the [table above](#custom-or-multiple-paths).
+
+Grouped `destinations` and a top-level `routes` array can coexist; grouped
+routes are resolved first. If two entries declare the **same** public `path`,
+the first one wins and the duplicate is ignored (logged as a warning) so a
+stray leftover can't double-mount a path. Ensure each backend destination
+exists in the subaccount — see
+[Required BTP / backend configuration](#required-btp--backend-configuration).
+
+Override the whole set on a running app without a rebuild via a single JSON env
+var (this replaces the `destinations` config entirely):
+
+```bash
+cf set-env mcp-router-srv CDS_MCP_DESTINATIONS '[{"name":"pm4-bp-ssl","locationId":"PM4-Sydney","routes":[{"path":"/mcp","backendPath":"/sap/zmcp2/ZMCPX","peek":true,"methods":["post","get","delete"]},{"path":"/odata","backendPath":"/sap/opu/odata/IWBEP"}]},{"name":"other-backend","locationId":"PM4-Tokyo","routes":[{"path":"/api2","backendPath":"/sap/zsvc/ZOTHER"}]}]'
+cf restage mcp-router-srv
+```
+
+### Inspecting the live configuration
+
+Working out which destination and backend path each public path maps to should
+not mean cross-referencing User-Provided Variables in the BTP cockpit. The
+unauthenticated **`GET /config`** endpoint returns the router's *resolved* route
+table so you can see it directly from a browser or `curl`:
+
+```bash
+curl https://<route-from-cf>/config
+```
+
+```jsonc
+{
+  "service": "mcp-router",
+  "profiles": ["production"],
+  "ts": "…",
+  "routes": [
+    { "path": "/mcp",   "destination": "pm4-bp-ssl",    "backendPath": "/sap/zmcp2/ZMCPX",     "locationId": "PM4-Sydney", "methods": ["post","get","delete"], "peek": true },
+    { "path": "/odata", "destination": "pm4-bp-ssl",    "backendPath": "/sap/opu/odata/IWBEP", "locationId": "PM4-Sydney", "methods": "all",                    "peek": false },
+    { "path": "/api2",  "destination": "other-backend", "backendPath": "/sap/zsvc/ZOTHER",     "locationId": "PM4-Tokyo",  "methods": "all",                    "peek": false }
+  ]
+}
+```
+
+It reflects whatever the app actually loaded — including any
+`CDS_MCP_DESTINATIONS` / `CDS_MCP_ROUTES` / `CDS_MCP_*` env overrides — so it is
+the quickest way to confirm a deployment picked up the config you expect. It
+exposes only configuration identifiers (destination names, public paths, backend
+paths, SCC location ids); it never returns tokens, credentials, or the backend
+host URL (that lives in the BTP destination and is resolved per request with the
+caller's JWT).
 
 
 ## Local development
