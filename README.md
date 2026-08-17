@@ -18,7 +18,7 @@ app can front:
 You can expose **one path or many** — see [Configuration](#configuration) for the
 single-route default and the multi-route (`/mcp`, `/odata`, …) setup.
 
-> [▶️ **Watch the setup walkthrough**](https://onedrive.cloud.microsoft/a@r9wv3cr9/_layouts/15/stream.aspx?id=%2Fa%40r9wv3cr9%2FDocuments%2F80%20Events%2FYoutTubeChannel%2F10xDaysOfCode%2FMCP%20Gateway%20on%20BTP%20Integration%20Suite%2F05%20%2D%20Router%20App%20on%20BTP%2Emp4&share=cQowMTJw2B%2D8QJRLod0%5Fa%2DbjEgUCAOOYOEPJSB0oljCpF4S2lQ&referrer=StreamWebApp%2EWeb&referrerScenario=AddressBarCopied%2Eview%2E773a9a08%2D9273%2D4fc1%2D97c6%2De53561f142d5) —
+> [▶️ **Watch the setup walkthrough**](https://youtu.be/xbBXcF79qyY) —
 > deploy the router to SAP BTP, configure IAS with Entra ID federation, and
 > verify end-to-end principal propagation against an on-premise OData service.
 
@@ -490,7 +490,7 @@ Parts 3–4 are the direct basis for the SSO + principal-propagation flow here.
 | 2 | [User auth with Microsoft Entra ID](https://github.com/hobru/sap-mcp-gateway-copilot-studio/blob/main/guides/02-entra-id.md) | OAuth authorization code with Entra ID | [▶️ watch](https://www.youtube.com/watch?v=jE-qlg2vZ6I) |
 | 3 | [User auth with SAP IAS (Entra-federated)](https://github.com/hobru/sap-mcp-gateway-copilot-studio/blob/main/guides/03-sap-ias.md) | IAS-issued token — foundation for on-prem propagation | [▶️ watch](https://youtu.be/7Y4TH2DWIoo) |
 | 4 | [On-prem principal propagation](https://github.com/hobru/sap-mcp-gateway-copilot-studio/blob/main/guides/04-principal-propagation.md) | Real ABAP user via Cloud Connector + X.509 | [▶️ watch](https://youtu.be/x64gVHRdVMQ) |
-| 5 | [Lightweight router app on SAP BTP](#quick-start) | Deploy this CAP router; call MCP, OData, or other HTTP APIs with IAS SSO and principal propagation | [▶️ watch](https://onedrive.cloud.microsoft/a@r9wv3cr9/_layouts/15/stream.aspx?id=%2Fa%40r9wv3cr9%2FDocuments%2F80%20Events%2FYoutTubeChannel%2F10xDaysOfCode%2FMCP%20Gateway%20on%20BTP%20Integration%20Suite%2F05%20%2D%20Router%20App%20on%20BTP%2Emp4&share=cQowMTJw2B%2D8QJRLod0%5Fa%2DbjEgUCAOOYOEPJSB0oljCpF4S2lQ&referrer=StreamWebApp%2EWeb&referrerScenario=AddressBarCopied%2Eview%2E773a9a08%2D9273%2D4fc1%2D97c6%2De53561f142d5) |
+| 5 | [Lightweight router app on SAP BTP](#quick-start) | Deploy this CAP router; call MCP, OData, or other HTTP APIs with IAS SSO and principal propagation | [▶️ watch](https://youtu.be/xbBXcF79qyY) |
 
 Further reading:
 
