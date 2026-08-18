@@ -40,8 +40,9 @@ cf push
 ```
 
 > On a plain `cf push` the buildpack does not upload `.git`, so the build stamp's
-> `commit`/`buildTime` may be empty. Set `GIT_COMMIT` / `BUILD_TIME` in
-> `manifest.yml` env, or use the MTA path (which captures git automatically).
+> `commit`/`buildTime`/`repo` may be empty. Set `GIT_COMMIT` / `BUILD_TIME` /
+> `GIT_REPO_URL` in `manifest.yml` env, or use the MTA path (which captures git
+> automatically).
 
 ## IAS OAuth setup
 

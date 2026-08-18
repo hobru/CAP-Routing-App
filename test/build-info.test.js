@@ -37,6 +37,7 @@ test('a build-info.json stamp is honored over env / package fallbacks', () => {
         commit: 'abcdef1234567890',
         commitShort: 'abcdef1',
         branch: 'release',
+        repo: 'https://github.com/hobru/CAP-Routing-App',
         nodeVersion: 'v18.0.0',
       }),
     )
@@ -46,6 +47,9 @@ test('a build-info.json stamp is honored over env / package fallbacks', () => {
     assert.equal(info.commit, 'abcdef1234567890')
     assert.equal(info.commitShort, 'abcdef1')
     assert.equal(info.branch, 'release')
+    assert.equal(info.repo, 'https://github.com/hobru/CAP-Routing-App')
+    assert.equal(info.branchUrl, 'https://github.com/hobru/CAP-Routing-App/tree/release')
+    assert.equal(info.commitUrl, 'https://github.com/hobru/CAP-Routing-App/commit/abcdef1234567890')
     assert.equal(info.stamped, true)
   } finally {
     if (backup != null) fs.writeFileSync(STAMP_PATH, backup)
@@ -83,3 +87,26 @@ function restoreEnv(key, value) {
   if (value === undefined) delete process.env[key]
   else process.env[key] = value
 }
+
+test('normalizes GIT_REPO_URL (scp form, .git suffix) and derives links', () => {
+  const backup = fs.existsSync(STAMP_PATH) ? fs.readFileSync(STAMP_PATH) : null
+  const savedRepo = process.env.GIT_REPO_URL
+  const savedCommit = process.env.GIT_COMMIT
+  const savedBranch = process.env.GIT_BRANCH
+  try {
+    fs.rmSync(STAMP_PATH, { force: true })
+    process.env.GIT_REPO_URL = 'git@github.com:hobru/CAP-Routing-App.git'
+    process.env.GIT_COMMIT = 'feedface00000000'
+    process.env.GIT_BRANCH = 'feature/x y'
+
+    const info = freshBuildInfo()
+    assert.equal(info.repo, 'https://github.com/hobru/CAP-Routing-App')
+    assert.equal(info.commitUrl, 'https://github.com/hobru/CAP-Routing-App/commit/feedface00000000')
+    assert.equal(info.branchUrl, 'https://github.com/hobru/CAP-Routing-App/tree/feature%2Fx%20y')
+  } finally {
+    restoreEnv('GIT_REPO_URL', savedRepo)
+    restoreEnv('GIT_COMMIT', savedCommit)
+    restoreEnv('GIT_BRANCH', savedBranch)
+    if (backup != null) fs.writeFileSync(STAMP_PATH, backup)
+  }
+})

@@ -41,6 +41,9 @@ curl https://<route-from-cf>/config
     "commit": "03f2c6ef…",                       // git commit the build was cut from
     "commitShort": "03f2c6e",
     "branch": "hobru-multi-destination-config",
+    "repo": "https://github.com/hobru/CAP-Routing-App",            // browsable remote (no .git)
+    "branchUrl": "https://github.com/hobru/CAP-Routing-App/tree/hobru-multi-destination-config",
+    "commitUrl": "https://github.com/hobru/CAP-Routing-App/commit/03f2c6ef…",
     "nodeVersion": "v20.x",
     "stamped": true,                             // false ⇒ no build stamp, values are fallbacks
     "startedAt": "2026-08-18T06:52:29.464Z"      // when this app instance started
@@ -68,11 +71,14 @@ caller's JWT).
 
 The `build` block tells you **which** build is live, so you can confirm a
 redeploy actually took effect rather than guessing from the route table alone.
-`version` comes from `package.json`; `buildTime`/`commit`/`branch` are stamped
+`version` comes from `package.json`; `buildTime`/`commit`/`branch`/`repo` are stamped
 into `build-info.json` at build time (by `scripts/gen-build-info.js`, wired into
 the `build` and `postinstall` npm scripts, so `mbt build` and buildpack staging
-both stamp it). If no stamp is present, `stamped` is `false` and the fields fall
-back to `package.json` + the `BUILD_TIME` / `GIT_COMMIT` / `GIT_BRANCH` env vars.
+both stamp it). `repo` is derived from the `origin` remote (scp and `.git` forms
+are normalized to an `https://…` base); when it and the branch/commit are known,
+the app also derives clickable `branchUrl` / `commitUrl`. If no stamp is present,
+`stamped` is `false` and the fields fall back to `package.json` + the
+`BUILD_TIME` / `GIT_COMMIT` / `GIT_BRANCH` / `GIT_REPO_URL` env vars.
 `startedAt` is always the current instance's start time. The same `build` block
 is included in **`GET /health`**.
 

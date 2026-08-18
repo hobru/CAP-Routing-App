@@ -34,9 +34,27 @@ function git(args) {
   }
 }
 
+/**
+ * Normalize a git remote URL to a browsable https base (no trailing `.git`,
+ * no embedded credentials, scp-style `git@host:owner/repo` supported).
+ * Returns null when it can't be confidently normalized.
+ */
+function normalizeRepoUrl(raw) {
+  if (!raw) return null
+  let url = String(raw).trim()
+  if (!url) return null
+  const scp = url.match(/^[\w.-]+@([\w.-]+):(.+)$/) // git@github.com:owner/repo(.git)
+  if (scp) url = `https://${scp[1]}/${scp[2]}`
+  url = url.replace(/^ssh:\/\//i, 'https://').replace(/^git:\/\//i, 'https://')
+  url = url.replace(/\/\/[^/@]+@/, '//') // strip user[:token]@
+  url = url.replace(/\.git$/i, '').replace(/\/+$/, '')
+  return /^https?:\/\/[^/]+\/.+/.test(url) ? url : null
+}
+
 function main() {
   const pkg = readPkg()
   const commit = process.env.GIT_COMMIT || git(['rev-parse', 'HEAD'])
+  const repo = normalizeRepoUrl(process.env.GIT_REPO_URL || git(['config', '--get', 'remote.origin.url']))
   const info = {
     name: pkg.name || null,
     version: pkg.version || null,
@@ -44,6 +62,7 @@ function main() {
     commit: commit || null,
     commitShort: commit ? commit.slice(0, 7) : null,
     branch: process.env.GIT_BRANCH || git(['rev-parse', '--abbrev-ref', 'HEAD']) || null,
+    repo,
     nodeVersion: process.version,
   }
 
