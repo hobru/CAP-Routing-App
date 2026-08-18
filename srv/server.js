@@ -2,6 +2,7 @@ const cds = require('@sap/cds')
 const { randomUUID } = require('node:crypto')
 const mountMcpRouter = require('./mcp-router')
 const { resolveRoutes, describeRoutes } = require('./lib/routes')
+const { getBuildInfo } = require('./lib/build-info')
 
 const LOG = cds.log('mcp')
 
@@ -28,7 +29,7 @@ cds.on('bootstrap', (app) => {
 
   // Lightweight liveness probe (unauthenticated) for CF health checks.
   app.get('/health', (_req, res) => {
-    res.json({ status: 'UP', service: 'mcp-router', ts: new Date().toISOString() })
+    res.json({ status: 'UP', service: 'mcp-router', build: getBuildInfo(), ts: new Date().toISOString() })
   })
 
   // Read-only view of the resolved routing configuration, so operators can see
@@ -41,6 +42,7 @@ cds.on('bootstrap', (app) => {
   app.get('/config', (_req, res) => {
     res.json({
       service: 'mcp-router',
+      build: getBuildInfo(),
       profiles: cds.env.profiles,
       ts: new Date().toISOString(),
       ...describeRoutes(),

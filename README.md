@@ -136,6 +136,8 @@ through the connectivity/principal-propagation headers.
 | `srv/lib/routes.js` | Resolves the route table from config: grouped `cds.mcp.destinations` / `CDS_MCP_DESTINATIONS`, multi-route `cds.mcp.routes` / `CDS_MCP_ROUTES`, or the single-route default. Also exposes the safe view behind `/config`. |
 | `srv/lib/auth.js` | Validates the IAS JWT via `@sap/xssec`; dev fallback via `x-dev-email`. |
 | `srv/lib/proxy.js` | Resolves the per-route destination and streams the request through the connectivity proxy (SSE-safe). |
+| `srv/lib/build-info.js` | Best-effort build/version metadata (from `build-info.json` + fallbacks) surfaced by `/config` and `/health`. |
+| `scripts/gen-build-info.js` | Stamps `build-info.json` (version, build time, git commit) at build time; run by the `build` + `postinstall` npm scripts. |
 | `http/verify-router.http` | Placeholder-only requests for health, IAS discovery/token exchange, MCP initialization, and an optional OData check. |
 | `mta.yaml` | MTA descriptor (module + destination/connectivity/identity/application-logs). |
 | `manifest.yml` | Quick `cf push` alternative. |
@@ -378,6 +380,17 @@ curl https://<route-from-cf>/config
 ```jsonc
 {
   "service": "mcp-router",
+  "build": {
+    "name": "mcp-router",
+    "version": "1.0.0",
+    "buildTime": "2026-08-18T06:52:06.154Z",   // when the deployed artifact was built
+    "commit": "03f2c6ef…",                       // git commit the build was cut from
+    "commitShort": "03f2c6e",
+    "branch": "hobru-multi-destination-config",
+    "nodeVersion": "v20.x",
+    "stamped": true,                             // false ⇒ no build stamp, values are fallbacks
+    "startedAt": "2026-08-18T06:52:29.464Z"      // when this app instance started
+  },
   "profiles": ["production"],
   "ts": "…",
   "routes": [
@@ -387,6 +400,17 @@ curl https://<route-from-cf>/config
   ]
 }
 ```
+
+The `build` block tells you **which** build is live, so you can confirm a
+redeploy actually took effect rather than guessing from the route table alone.
+`version` comes from `package.json`; `buildTime`/`commit`/`branch` are stamped
+into `build-info.json` at build time (by `scripts/gen-build-info.js`, wired into
+the `build` and `postinstall` npm scripts, so `mbt build` and buildpack staging
+both stamp it). If no stamp is present, `stamped` is `false` and the fields fall
+back to `package.json` + the `BUILD_TIME` / `GIT_COMMIT` / `GIT_BRANCH` env vars.
+`startedAt` is always the current instance's start time. The same `build` block
+is also included in **`GET /health`**.
+
 
 It reflects whatever the app actually loaded — including any
 `CDS_MCP_DESTINATIONS` / `CDS_MCP_ROUTES` / `CDS_MCP_*` env overrides — so it is

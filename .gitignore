@@ -7,3 +7,4 @@ mta_archives/
 .cds_gen/
 *.log
 .DS_Store
+build-info.json

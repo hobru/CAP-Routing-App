@@ -17,6 +17,8 @@
   },
   "scripts": {
     "start": "cds-serve",
+    "build": "node scripts/gen-build-info.js",
+    "postinstall": "node scripts/gen-build-info.js",
     "test": "node --test test/*.test.js",
     "watch": "cds watch"
   },
