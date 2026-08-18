@@ -97,6 +97,12 @@ do **not** go inside a `destinations[]` entry):
 }
 ```
 
+> **All-or-nothing, top level only.** `/health` and `/config` are single,
+> app-wide endpoints — there is no per-destination diagnostic endpoint. Setting
+> `exposeConfig: false` disables `/config` **entirely** (it can't hide just one
+> destination; when enabled, `/config` always lists every destination and route).
+> A flag placed **inside** a `destinations[]` entry is silently **ignored**.
+
 A disabled endpoint simply isn't registered, so it returns `404`. You can also
 flip either flag at runtime without redeploying the artifact, via a
 User-Provided Variable / env override:
