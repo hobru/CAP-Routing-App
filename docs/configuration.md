@@ -165,43 +165,70 @@ override any of them).
 ```jsonc
 "mcp": {
   "timeout": 120000,                 // global default for every route
+  "exposeHealth": true,              // app-wide diagnostic endpoints (top level only)
+  "exposeConfig": true,              //   → siblings of `destinations`, never inside a group
   "destinations": [
     {
       "name": "pm4-bp-ssl",          // BTP destination #1 (OnPremise, PrincipalPropagation)
       "locationId": "PM4-Sydney",    // SCC location shared by this group's routes
       "routes": [
         {
-          "path": "/mcp",                        // → pm4-bp-ssl /sap/zmcp2/ZMCPX
+          "path": "/pm4/mcp",                     // → pm4-bp-ssl /sap/zmcp2/ZMCPX
           "backendPath": "/sap/zmcp2/ZMCPX",
           "peek": true,
           "methods": ["post", "get", "delete"]
         },
         {
-          "path": "/odata",                       // → pm4-bp-ssl /sap/opu/odata/IWBEP
+          "path": "/pm4/odata",                   // → pm4-bp-ssl /sap/opu/odata/IWBEP
           "backendPath": "/sap/opu/odata/IWBEP"
         }
       ]
     },
     {
-      "name": "other-backend",       // BTP destination #2 (its own SCC tunnel)
-      "locationId": "PM4-Tokyo",
+      "name": "a4h-ssl",             // BTP destination #2 (its own SCC tunnel)
+      "locationId": "A4H",
       "routes": [
-        { "path": "/api2", "backendPath": "/sap/zsvc/ZOTHER" }   // → other-backend /sap/zsvc/ZOTHER
+        {
+          "path": "/a4h/mcp",                     // → a4h-ssl /sap/zmcp2/ZMCPX
+          "backendPath": "/sap/zmcp2/ZMCPX",
+          "peek": true,
+          "methods": ["post", "get", "delete"]
+        },
+        {
+          "path": "/a4h/odata",                   // → a4h-ssl /sap/opu/odata/IWBEP
+          "backendPath": "/sap/opu/odata/IWBEP"
+        }
+      ]
+    },
+    {
+      "name": "npl-ssl",             // BTP destination #3 (SCC uses the default location)
+      "routes": [
+        { "path": "/npl/odata", "backendPath": "/sap/opu/odata/IWBEP" }   // → npl-ssl /sap/opu/odata/IWBEP
       ]
     }
   ]
 }
 ```
 
+> **`exposeHealth` / `exposeConfig` are app-wide**, so they live at the **top
+> level** of `mcp` (siblings of `destinations`), *not* inside a destination
+> group. See [Diagnostic endpoint flags](#diagnostic-endpoint-flags) below.
+>
+> The third group (`npl-ssl`) omits `locationId` — do that when the Cloud
+> Connector for that backend uses the **default** location. Only set
+> `locationId` for backends whose SCC tunnel is bound to a named location.
+
 Every route across all destinations still shares the same IAS SSO + principal
 propagation; only the target destination and path differ. The route table above
 resolves to:
 
-| Client calls (app URL)     | Destination     | Reaches on ABAP                        |
-| -------------------------- | --------------- | -------------------------------------- |
-| `/mcp/ALL`                 | `pm4-bp-ssl`    | `/sap/zmcp2/ZMCPX/ALL`                 |
-| `/odata/MY_SRV/$metadata`  | `pm4-bp-ssl`    | `/sap/opu/odata/IWBEP/MY_SRV/$metadata`|
-| `/api2/foo`                | `other-backend` | `/sap/zsvc/ZOTHER/foo`                 |
+| Client calls (app URL)        | Destination  | Reaches on ABAP                        |
+| ----------------------------- | ------------ | -------------------------------------- |
+| `/pm4/mcp/ALL`                | `pm4-bp-ssl` | `/sap/zmcp2/ZMCPX/ALL`                 |
+| `/pm4/odata/MY_SRV/$metadata` | `pm4-bp-ssl` | `/sap/opu/odata/IWBEP/MY_SRV/$metadata`|
+| `/a4h/mcp/ALL`                | `a4h-ssl`    | `/sap/zmcp2/ZMCPX/ALL`                 |
+| `/a4h/odata/MY_SRV/$metadata` | `a4h-ssl`    | `/sap/opu/odata/IWBEP/MY_SRV/$metadata`|
+| `/npl/odata/MY_SRV/$metadata` | `npl-ssl`    | `/sap/opu/odata/IWBEP/MY_SRV/$metadata`|
 
 Destination group keys: `name` (the BTP destination), `routes` (its routes),
 and optional `backendPath` / `locationId` / `timeout` defaults inherited by
