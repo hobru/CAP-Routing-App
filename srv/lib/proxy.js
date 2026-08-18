@@ -69,6 +69,32 @@ function buildTargetUrl(destinationUrl, backendPath, requestPath) {
 }
 
 /**
+ * Resolve the Cloud Connector Location ID to use for a request.
+ *
+ * The resolved route's `locationId` is authoritative — `normalizeRoute` in
+ * `lib/routes.js` already folds the top-level `cds.mcp.locationId` default into
+ * it. It is honoured even when it is an explicit empty string: a destination
+ * whose Cloud Connector is registered under the default (empty) location must
+ * send NO `SAP-Connectivity-SCC-Location_ID` header, and must NOT silently
+ * inherit another route's location id. Only when the route carries no
+ * `locationId` at all (undefined/null — e.g. the legacy single-route fallback)
+ * do we look at env vars and then the destination's own configured location.
+ *
+ * Returns '' when nothing is configured, so the caller simply omits the header.
+ */
+function resolveLocationId(route, mcp, destination) {
+  if (route && route.locationId != null) return route.locationId
+  return (
+    (mcp && mcp.locationId) ||
+    process.env.CDS_MCP_LOCATIONID ||
+    destination?.cloudConnectorLocationId ||
+    destination?.originalProperties?.CloudConnectorLocationId ||
+    destination?.originalProperties?.['CloudConnectorLocationId'] ||
+    ''
+  )
+}
+
+/**
  * Resolve the OnPremise destination (with the user JWT for principal
  * propagation) and stream the MCP request through the connectivity proxy to the
  * on-prem ABAP MCP server, piping the response (including SSE) straight back.
@@ -123,19 +149,15 @@ async function proxyToBackend(req, res) {
   // SCC tunnel selection: the connectivity proxy must be told the Cloud
   // Connector Location ID, otherwise it looks for an SCC registered under the
   // default (empty) location and fails when the real SCC uses a named location.
-  // Prefer an explicit BTP-configured value; fall back to whatever the SDK
-  // resolved from the destination.
-  const locationId =
-    route.locationId ||
-    (cds.env.mcp && cds.env.mcp.locationId) ||
-    process.env.CDS_MCP_LOCATIONID ||
-    destination.cloudConnectorLocationId ||
-    destination.originalProperties?.CloudConnectorLocationId ||
-    destination.originalProperties?.['CloudConnectorLocationId']
+  // See resolveLocationId — an explicit empty string is honoured as "default
+  // (empty) location" and is not overridden by the global default.
+  const locationId = resolveLocationId(route, mcp, destination)
   const LOC_HEADER = 'SAP-Connectivity-SCC-Location_ID'
   const hasLoc = Object.keys(headers).some((k) => k.toLowerCase() === LOC_HEADER.toLowerCase())
   if (isOnPremise && locationId && !hasLoc) headers[LOC_HEADER] = locationId
-  if (isOnPremise && !locationId) {
+  // Only warn when nothing was configured anywhere — an explicit empty
+  // locationId on the route is intentional (SCC under the default location).
+  if (isOnPremise && !locationId && (route.locationId == null)) {
     LOG.warn('no SCC location id resolved — connectivity proxy may not match a tunnel', {
       correlationId: cid,
       destination: destinationName,
@@ -222,4 +244,4 @@ function sendError(res, status, error, detail) {
   res.json({ error, detail })
 }
 
-module.exports = { buildTargetUrl, proxyToBackend }
+module.exports = { buildTargetUrl, resolveLocationId, proxyToBackend }

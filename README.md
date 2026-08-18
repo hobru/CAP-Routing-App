@@ -266,7 +266,7 @@ Per-route keys:
 | `path`        | `/mcp`                     | App URL prefix (leading `/` added if omitted). Catch-all sub-paths.   |
 | `backendPath` | top-level `backendPath`    | ABAP base path the prefix maps to.                                    |
 | `destination` | top-level `destination`    | Override the BTP destination per route.                               |
-| `locationId`  | top-level `locationId`     | Override the SCC Location ID per route.                               |
+| `locationId`  | top-level `locationId`     | Override the SCC Location ID per route. Set to `""` for a destination whose Cloud Connector uses the **default (empty)** location — the empty value is honoured and won't inherit the top-level default. |
 | `timeout`     | top-level `timeout`        | Non-streaming timeout (ms).                                           |
 | `peek`        | `false`                    | Buffer small POST bodies to log the JSON-RPC method. Enable for MCP only. |
 | `methods`     | *(all verbs)*              | Lowercase allowlist, e.g. `["post","get","delete"]`. Omit to accept every verb, including OData's `MERGE`. |
