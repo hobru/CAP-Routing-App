@@ -158,6 +158,7 @@ signed-in ABAP user. Use [`http/verify-router.http`](./http/verify-router.http)
 | Custom paths, multiple routes, per-route keys, env overrides | [Configuration](./docs/configuration.md) |
 | **Multiple destinations** (one app → many backends) | [Configuration → Multiple destinations](./docs/configuration.md#multiple-destinations) |
 | `/health`, `/config` (resolved routes + **build/version**) | [Operations](./docs/operations.md) |
+| Disabling `/health` / `/config` (`exposeHealth` / `exposeConfig`) | [Operations → Disabling the diagnostic endpoints](./docs/operations.md#disabling-the-diagnostic-endpoints) |
 | Logging, correlation IDs, common error symptoms | [Operations → Logging / Common symptoms](./docs/operations.md#logging) |
 | MTA vs `cf push`, local development | [Deployment](./docs/deployment.md) |
 | Destination, Cloud Connector, IAS, ABAP (CERTRULE) setup | [BTP / backend setup](./docs/btp-backend-setup.md) |

@@ -1,7 +1,7 @@
 const cds = require('@sap/cds')
 const { randomUUID } = require('node:crypto')
 const mountMcpRouter = require('./mcp-router')
-const { resolveRoutes, describeRoutes } = require('./lib/routes')
+const { resolveRoutes, describeRoutes, getEndpoints } = require('./lib/routes')
 const { getBuildInfo } = require('./lib/build-info')
 
 const LOG = cds.log('mcp')
@@ -27,10 +27,20 @@ function correlationId(req, res, next) {
 cds.on('bootstrap', (app) => {
   app.use(correlationId)
 
+  const endpoints = getEndpoints()
+
   // Lightweight liveness probe (unauthenticated) for CF health checks.
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'UP', service: 'mcp-router', build: getBuildInfo(), ts: new Date().toISOString() })
-  })
+  if (endpoints.health) {
+    app.get('/health', (_req, res) => {
+      res.json({ status: 'UP', service: 'mcp-router', build: getBuildInfo(), ts: new Date().toISOString() })
+    })
+  } else {
+    LOG.warn(
+      '/health endpoint disabled via cds.mcp.exposeHealth=false — set the CF ' +
+        'health-check-type to `process` or `port` (manifest.yml / mta.yaml), ' +
+        'otherwise the app will never report healthy.',
+    )
+  }
 
   // Read-only view of the resolved routing configuration, so operators can see
   // — from a browser or `curl`, without digging through User-Provided Variables
@@ -39,20 +49,24 @@ cds.on('bootstrap', (app) => {
   // paths, backend paths, SCC location ids); never tokens, credentials, or the
   // backend host URL (that lives in the BTP destination and is resolved
   // per-request with the caller's JWT).
-  app.get('/config', (_req, res) => {
-    res.json({
-      service: 'mcp-router',
-      build: getBuildInfo(),
-      profiles: cds.env.profiles,
-      ts: new Date().toISOString(),
-      ...describeRoutes(),
+  if (endpoints.config) {
+    app.get('/config', (_req, res) => {
+      res.json({
+        service: 'mcp-router',
+        build: getBuildInfo(),
+        profiles: cds.env.profiles,
+        endpoints,
+        ts: new Date().toISOString(),
+        ...describeRoutes(),
+      })
     })
-  })
+  }
 
   mountMcpRouter(app)
 
   LOG.info('mcp-router bootstrapped', {
     routes: resolveRoutes().map((r) => `${r.path} → ${r.destination}${r.backendPath}`),
+    endpoints,
     profiles: cds.env.profiles,
   })
 })

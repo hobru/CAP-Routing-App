@@ -222,6 +222,30 @@ cf set-env mcp-router-srv CDS_MCP_DESTINATIONS '[{"name":"pm4-bp-ssl","locationI
 cf restage mcp-router-srv
 ```
 
+## Diagnostic endpoint flags
+
+The unauthenticated `GET /health` and `GET /config` endpoints are exposed by
+default. Each can be turned off independently under the top-level `cds.mcp`
+config — useful when you don't want `/config` to reveal routing identifiers
+(destinations, backend paths, location ids) in production:
+
+| Key            | Default | Notes                                                                 |
+| -------------- | ------- | --------------------------------------------------------------------- |
+| `exposeHealth` | `true`  | Set `false` to hide `GET /health` (returns `404`). **Also switch the CF `health-check-type` to `process`/`port`** — see [Operations](./operations.md#disabling-the-diagnostic-endpoints). |
+| `exposeConfig` | `true`  | Set `false` to hide `GET /config` (returns `404`).                    |
+
+```json
+"mcp": {
+  "exposeConfig": false
+}
+```
+
+Both accept a runtime override too (`CDS_MCP_EXPOSEHEALTH` /
+`CDS_MCP_EXPOSECONFIG`, e.g. `false`), so you can flip them with `cf set-env`
++ `cf restage` without rebuilding. Full details, including the health-check
+caveat, are in
+[Operations → Disabling the diagnostic endpoints](./operations.md#disabling-the-diagnostic-endpoints).
+
 ## Verify what the app actually loaded
 
 Use the unauthenticated **`GET /config`** endpoint to see the *resolved* route

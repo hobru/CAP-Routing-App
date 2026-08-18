@@ -163,4 +163,37 @@ function normalizeRoute(raw, mcp) {
   }
 }
 
-module.exports = { normalizeRoute, resolveRoutes, describeRoutes }
+/**
+ * Coerce a config flag to a boolean, tolerating the string form that env-var
+ * overrides arrive in. `cds.env` surfaces `CDS_MCP_EXPOSEHEALTH=false` as the
+ * string `"false"`, whereas a `package.json` boolean arrives already typed.
+ * Unset (`null`/`undefined`) or an empty string falls back to `fallback`.
+ */
+function isEnabled(value, fallback = true) {
+  if (value == null) return fallback
+  if (typeof value === 'boolean') return value
+  const s = String(value).trim().toLowerCase()
+  if (s === '') return fallback
+  return !['false', '0', 'no', 'off'].includes(s)
+}
+
+/**
+ * Resolve which built-in diagnostic endpoints are exposed. Both default to
+ * `true` (backward compatible). Toggle from `package.json` (`cds.mcp`) or a
+ * runtime env override:
+ *   "exposeHealth": false   // CDS_MCP_EXPOSEHEALTH=false  → hides GET /health
+ *   "exposeConfig": false   // CDS_MCP_EXPOSECONFIG=false  → hides GET /config
+ *
+ * Note: /health is the CF http health-check target (see manifest.yml). If you
+ * disable it, switch `health-check-type` to `process` (or `port`) or the app
+ * will never report healthy.
+ */
+function getEndpoints() {
+  const mcp = cds.env.mcp || {}
+  return {
+    health: isEnabled(mcp.exposeHealth, true),
+    config: isEnabled(mcp.exposeConfig, true),
+  }
+}
+
+module.exports = { normalizeRoute, resolveRoutes, describeRoutes, getEndpoints }

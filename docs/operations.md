@@ -1,7 +1,9 @@
 # Operations: health, config & troubleshooting
 
 The router exposes two **unauthenticated** endpoints to make a deployment easy to
-inspect, plus structured logging for every proxied request.
+inspect, plus structured logging for every proxied request. Both are enabled by
+default and can be switched off individually — see
+[Disabling the diagnostic endpoints](#disabling-the-diagnostic-endpoints).
 
 ## `GET /health`
 
@@ -11,6 +13,12 @@ live `build` block (see below).
 ```bash
 curl https://<route-from-cf>/health
 ```
+
+> **Health check dependency.** `manifest.yml` configures `cf push` to probe this
+> endpoint (`health-check-type: http`, `health-check-http-endpoint: /health`). If
+> you disable `/health` (see below), also switch `health-check-type` to `process`
+> (or `port`) or the app will never report healthy and the deploy will fail. The
+> MTA deploy path (`mta.yaml`) uses a `port` check and is unaffected.
 
 ## Inspecting the live configuration
 
@@ -38,6 +46,7 @@ curl https://<route-from-cf>/config
     "startedAt": "2026-08-18T06:52:29.464Z"      // when this app instance started
   },
   "profiles": ["production"],
+  "endpoints": { "health": true, "config": true },
   "ts": "…",
   "routes": [
     { "path": "/mcp",   "destination": "pm4-bp-ssl",    "backendPath": "/sap/zmcp2/ZMCPX",     "locationId": "PM4-Sydney", "methods": ["post","get","delete"], "peek": true },
@@ -66,6 +75,37 @@ both stamp it). If no stamp is present, `stamped` is `false` and the fields fall
 back to `package.json` + the `BUILD_TIME` / `GIT_COMMIT` / `GIT_BRANCH` env vars.
 `startedAt` is always the current instance's start time. The same `build` block
 is included in **`GET /health`**.
+
+## Disabling the diagnostic endpoints
+
+Both endpoints are exposed by default. Because `/config` reveals routing
+identifiers (destination names, backend paths, SCC location ids), you may want to
+hide it in production. Each endpoint has its own flag under `cds.mcp` in
+`package.json` (both default to `true`):
+
+```json
+"mcp": {
+  "exposeHealth": true,
+  "exposeConfig": false
+}
+```
+
+A disabled endpoint simply isn't registered, so it returns `404`. You can also
+flip either flag at runtime without redeploying the artifact, via a
+User-Provided Variable / env override:
+
+```bash
+cf set-env mcp-router-srv CDS_MCP_EXPOSECONFIG false && cf restage mcp-router-srv
+```
+
+The `endpoints` block in the `/config` response reflects the current state, so
+you can confirm what is exposed while `/config` is still on.
+
+> **If you disable `/health`,** update the CF health check in `manifest.yml`:
+> change `health-check-type` from `http` to `process` (or `port`) and remove the
+> `health-check-http-endpoint` line. Otherwise the platform keeps probing a route
+> that now returns `404` and the app never becomes healthy. The MTA path
+> (`mta.yaml`) uses a `port` check and needs no change.
 
 ## Logging
 

@@ -52,6 +52,8 @@
       "backendPath": "/sap/zmcp2/ZMCPX",
       "locationId": "PM4-Sydney",
       "timeout": 120000,
+      "exposeHealth": true,
+      "exposeConfig": true,
       "routes": [
         {
           "path": "/mcp",

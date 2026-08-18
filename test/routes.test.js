@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict')
 const test = require('node:test')
 const cds = require('@sap/cds')
-const { normalizeRoute, resolveRoutes, describeRoutes } = require('../srv/lib/routes')
+const { normalizeRoute, resolveRoutes, describeRoutes, getEndpoints } = require('../srv/lib/routes')
 
 test('custom route inherits shared package configuration', () => {
   const route = normalizeRoute(
@@ -178,4 +178,25 @@ test('describeRoutes returns a non-sensitive view of the route table', () => {
       peek: true,
     },
   ])
+})
+
+test('getEndpoints exposes /health and /config by default', () => {
+  const endpoints = withMcpEnv({}, () => getEndpoints())
+  assert.deepEqual(endpoints, { health: true, config: true })
+})
+
+test('getEndpoints honours boolean flags from package.json', () => {
+  const endpoints = withMcpEnv({ exposeHealth: false, exposeConfig: false }, () => getEndpoints())
+  assert.deepEqual(endpoints, { health: false, config: false })
+})
+
+test('getEndpoints coerces string flags from env overrides', () => {
+  // CDS_MCP_EXPOSECONFIG=false arrives as the string "false".
+  const endpoints = withMcpEnv({ exposeHealth: 'true', exposeConfig: 'false' }, () => getEndpoints())
+  assert.deepEqual(endpoints, { health: true, config: false })
+
+  // Other falsy spellings are also honoured; empty string falls back to default.
+  assert.equal(withMcpEnv({ exposeConfig: 'off' }, () => getEndpoints()).config, false)
+  assert.equal(withMcpEnv({ exposeConfig: '0' }, () => getEndpoints()).config, false)
+  assert.equal(withMcpEnv({ exposeConfig: '' }, () => getEndpoints()).config, true)
 })

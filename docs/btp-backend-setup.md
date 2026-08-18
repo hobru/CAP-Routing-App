@@ -55,7 +55,9 @@ subaccount as **HTTP / OnPremise / PrincipalPropagation**:
 - **Cloud Connector**: a system mapping (virtual host → real ABAP host:port) with
   CA + system certificates enabled for principal propagation, registered under
   the Location ID referenced above. IAS tokens require Cloud Connector **2.13 or
-  newer** and explicit trust synchronization:
+  newer** and explicit trust synchronization. SAP's
+  [Note 3452851 — Setting up Principal Propagation step-by-step from SAP Cloud Connector](https://me.sap.com/notes/0003452851)
+  walks through the full setup; the key steps are:
   1. In the BTP subaccount, confirm the OIDC trust points to the same IAS tenant
      that issues the router token.
   2. In Cloud Connector, open **Cloud To On-Premise → Principal Propagation** and
