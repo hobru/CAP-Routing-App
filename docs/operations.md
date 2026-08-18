@@ -80,8 +80,9 @@ is included in **`GET /health`**.
 
 Both endpoints are exposed by default. Because `/config` reveals routing
 identifiers (destination names, backend paths, SCC location ids), you may want to
-hide it in production. Each endpoint has its own flag under `cds.mcp` in
-`package.json` (both default to `true`):
+hide it in production. Each endpoint has its own flag at the **top level** of
+`cds.mcp` in `package.json` (both default to `true`; they are app-wide, so they
+do **not** go inside a `destinations[]` entry):
 
 ```json
 "mcp": {

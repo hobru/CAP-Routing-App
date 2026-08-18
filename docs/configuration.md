@@ -229,6 +229,11 @@ default. Each can be turned off independently under the top-level `cds.mcp`
 config — useful when you don't want `/config` to reveal routing identifiers
 (destinations, backend paths, location ids) in production:
 
+> **Top-level only.** `/health` and `/config` are single, app-wide endpoints,
+> so these two flags live at the top of `cds.mcp` (siblings of `destination` /
+> `destinations` / `routes`). Placing them *inside* a `destinations[]` entry has
+> no effect — there is no per-destination health or config endpoint.
+
 | Key            | Default | Notes                                                                 |
 | -------------- | ------- | --------------------------------------------------------------------- |
 | `exposeHealth` | `true`  | Set `false` to hide `GET /health` (returns `404`). **Also switch the CF `health-check-type` to `process`/`port`** — see [Operations](./operations.md#disabling-the-diagnostic-endpoints). |
