@@ -54,7 +54,14 @@ identity/routing flow and project layout.
 
 ## Quick start
 
-Five steps from clone to a working SSO call. Deep detail is linked from each step.
+From clone to a working SSO call. Deep detail is linked from each step.
+
+> **Tools you'll need:** [Node.js](https://nodejs.org/) (18+),
+> the [Cloud Foundry CLI](https://docs.cloudfoundry.org/cf-cli/install-go-cli.html)
+> with the [MultiApps (MTA) plugin](https://github.com/cloudfoundry/multiapps-cli-plugin#installation)
+> (`cf install-plugin multiapps`), and the
+> [Cloud MTA Build Tool](https://sap.github.io/cloud-mta-build-tool/) (`mbt`,
+> installed in step 3). Log in first with `cf login`.
 
 > **Prerequisite — the BTP destination must already exist.** The app forwards to
 > the destination named in `package.json`. Create it in the subaccount **before**
@@ -62,15 +69,24 @@ Five steps from clone to a working SSO call. Deep detail is linked from each ste
 > authentication** destination and switch to OnPremise + PrincipalPropagation
 > later — see [BTP / backend setup](./docs/btp-backend-setup.md).
 
-**1. Adjust `package.json` (`cds.mcp`).** The committed values are examples from
-one environment. Replace them with **your** destination, backend path, and — for
-an OnPremise destination — your Cloud Connector Location ID:
+**1. Clone & install.**
 
-```jsonc
+```bash
+git clone https://github.com/hobru/CAP-Routing-App.git
+cd CAP-Routing-App
+npm install
+```
+
+**2. Adjust `package.json` (`cds.mcp`).** The committed values are examples from
+one environment. Replace them with **your** destination, backend path, and — for
+an OnPremise destination — your Cloud Connector Location ID. If the Cloud
+Connector uses the default (empty) location, omit `locationId` or set it to `""`:
+
+```json
 "mcp": {
   "destination": "<your-destination>",
   "backendPath": "<your-backend-path>",
-  "locationId": "<your-scc-location-id>",   // omit or "" if the SCC uses the default location
+  "locationId": "<your-scc-location-id>",
   "timeout": 120000,
   "routes": [
     { "path": "/mcp", "peek": true }
@@ -81,17 +97,14 @@ an OnPremise destination — your Cloud Connector Location ID:
 Need custom paths, several routes, or multiple backends? See
 [**Configuration**](./docs/configuration.md).
 
-**2. Clone & build.**
+**3. Build.**
 
 ```bash
-git clone https://github.com/hobru/CAP-Routing-App.git
-cd CAP-Routing-App
-npm install
 npm install -g mbt        # once
 mbt build                 # → mta_archives/mcp-router_1.0.0.mtar
 ```
 
-**3. Deploy** to Cloud Foundry ([▶️ video](https://youtu.be/xbBXcF79qyY)) — creates
+**4. Deploy** to Cloud Foundry ([▶️ video](https://youtu.be/xbBXcF79qyY)) — creates
 the app plus destination/connectivity/identity/logs services and an IAS app:
 
 ```bash
@@ -100,10 +113,10 @@ cf deploy mta_archives/mcp-router_1.0.0.mtar
 
 Prefer `cf push`, or want local dev? See [**Deployment**](./docs/deployment.md).
 
-**4. Configure IAS** — federate to Entra ID, set redirect URIs, grant types,
+**5. Configure IAS** — federate to Entra ID, set redirect URIs, grant types,
 audience and the `email` claim. See **[`IAS-SETUP.md`](./IAS-SETUP.md)**.
 
-**5. Verify.**
+**6. Verify.**
 
 ```bash
 cf app mcp-router-srv
