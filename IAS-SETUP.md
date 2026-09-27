@@ -40,6 +40,7 @@ cf service-key mcp-router-identity k1
 
 - **Identity Providers → Corporate Identity Providers**: confirm **Microsoft
   Entra ID** is configured (SAML or OIDC) and trusted by the tenant.
+> Info: If not done yet, configure it. The discovery URL from Entra is typically https://login.microsoftonline.com/{TENANT-ID}/v2.0/.well-known/openid-configuration
 - On the MCP Router app → **Conditional Authentication** (or
   *Authentication and Access → Default Identity Provider*): set the default IdP
   to **Entra ID** so users authenticate with their corporate identity.
